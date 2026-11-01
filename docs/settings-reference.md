@@ -88,6 +88,12 @@ line turns it on for one run. Every key here is read at start-up.
 
 See [HD textures](hd-textures.md) for the pack format and local workflow.
 
+## [mods]
+
+| Key | Default | Meaning |
+|---|---|---|
+| `packs` | (empty) | Folder names beneath `<data>/mods`, separated by semicolons, whose `files` folder replaces the game's own files: `files/music/dirty/main.mus` in place of the game's `music/dirty/main.mus`, and the same for speech, models and arenas (the `.viv` archives) and every other game file. Later packs win. Restart. Env `RECOMP_FILE_PACKS`. [File mods](mod-manager.md#file-mods). |
+
 ## [input]
 
 | Key | Default | Meaning |

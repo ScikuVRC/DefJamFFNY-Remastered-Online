@@ -65,6 +65,37 @@ runs ClamAV in a job without signing credentials. Only a separate owner-approved
 job signs metadata matching the reviewed source. Artwork stays on external hosts;
 no artwork, private keys or executable game code enter either public source tree.
 
+## File mods
+
+A pack can also replace the game's own files, not only its textures. Put them in the
+pack's `files` folder, laid out like the game folder, and list the pack in `[mods] packs`
+in `settings.ini` (semicolons between names; later packs win; restart the game):
+
+```text
+<data>/mods/my-music/files/music/dirty/main.mus      music
+<data>/mods/my-arena/files/assets/v2bg.viv           models, arenas (.viv archives)
+<data>/mods/my-voices/files/speech/Announcer/...     speech
+```
+
+Every file the game opens from its own folder is looked up in the packs first, and the
+log says which one was used (`[MODS] music\dirty\main.mus from ...`). Nothing in the game
+folder is changed; removing the pack from the list restores the original.
+
+- **Music.** The game asks for each track as loose files first (`music\<track>\tune.mpf`,
+  `main.mus`, `loading0.mus`, `overlay0.mus`; the tracks are names such as `dirty` and
+  `cnnyessir`) and plays them from `audio\music*.viv` when they are absent. So a track
+  can be replaced by putting its files at those paths. They must be EA's MPF/MUS
+  format, which the game decodes itself; an MP3 or WAV renamed is not played.
+- **Models and arenas.** Fighters, venues and their textures are in the `.viv`
+  archives under `assets` and `motion`. A replacement archive has to keep the
+  names the game looks for inside it.
+- **Data.** `fighter.xml`, `venue.xml`, `gamedata.xml` and the other files at the top
+  of the game folder can be replaced the same way.
+
+Online, every player needs the same file packs: a pack that changes models or game
+data plays a different fight and the games part (netplay compares the program and
+`default.xbe` only).
+
 ## Catalogue operations
 
 The protected publisher issues metadata with a30-day expiry. New installs and

@@ -53,6 +53,8 @@ static RecompSetting g_display_settings[] = {
       "Use texture packs from the data folder's mods directory." },
     { "textures", "packs", RECOMP_SETTING_STRING, 0, 0, 0, NULL, "RECOMP_TEXTURE_PACKS", RECOMP_SETTING_RESTART,
       "Pack folder names separated by semicolons. Later packs take precedence.", "faithful-hd" },
+    { "mods", "packs", RECOMP_SETTING_STRING, 0, 0, 0, NULL, "RECOMP_FILE_PACKS", RECOMP_SETTING_RESTART,
+      "Mod packs (folders in the data folder's mods directory) whose files folder replaces the game's own files: music, speech, models, arenas. Semicolons between names; later packs take precedence.", "" },
     { "textures", "cache_mb", RECOMP_SETTING_INT, TEXTURE_CACHE_MB, 32, 4096, NULL, "RECOMP_TEXTURE_CACHE_MB", RECOMP_SETTING_RESTART,
       "Memory budget for replacement textures in MiB, including their retained upload data." },
     { "textures", "dump", RECOMP_SETTING_BOOL, 0, 0, 0, NULL, NULL, RECOMP_SETTING_RESTART,
@@ -565,6 +567,10 @@ int pc_settings_init(void)
         if (!getenv("RECOMP_TEXTURE_PACKS")) {
             recomp_settings_get_text("textures","packs",packs,sizeof packs,"faithful-hd");
             _putenv_s("RECOMP_TEXTURE_PACKS",recomp_settings_get("textures","enabled",0) ? packs : "");
+        }
+        {
+            extern void defjam_file_mods_init(void);
+            defjam_file_mods_init();    /* [mods] packs: files in place of the game's (file_mods.c) */
         }
         if (!getenv("RECOMP_TEXTURE_CACHE_MB")) {
             snprintf(value,sizeof value,"%d",recomp_settings_get("textures","cache_mb",TEXTURE_CACHE_MB));
