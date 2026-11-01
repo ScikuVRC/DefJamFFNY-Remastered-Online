@@ -173,9 +173,9 @@ Terrordome (`RECOMP_NETPLAY_VENUE=6`) started there on both and stayed in sync.
   first deferred routine ran seconds late and the driver gave up on the pad) is fixed
   in the toolkit: the timer thread, pinned to the guest core, went unscheduled for
   3.1 s in about one start in fifteen; it now only prefers that core. 0 stalls in 65
-  starts against 4 in 55. The fix is commit `6cc6238` on the local toolkit branch
-  `defjam/timer-ideal-core` in `tools/xboxrecomp`, not published: the parent's gitlink
-  still points at the published toolkit until that commit is on a fork the project
-  can fetch.
+  starts against 4 in 55. The fix is commit `6cc6238` on the toolkit branch
+  `defjam/timer-ideal-core` of the fork `ScikuVRC/xboxrecomp`, which `tools/xboxrecomp`
+  now follows; the same branch carries the file-mod hook (`103fd8b`). Two games starting
+  at once on one PC still stalled now and then (about one pair start in four).
 - A rare wild indirect call in the controller library at boot (`0x27EC6E`, once in 69
   runs), skipped without harm.
