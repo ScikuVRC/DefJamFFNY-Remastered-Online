@@ -142,3 +142,55 @@ int defjam_pinned_increment(uint32_t *increment)
     *increment = DEFAULT_INCREMENT;
     return 1;
 }
+
+/* The global add-with-carry generator at 0x33DB5C (six words, sub_0002A390) has 236
+ * draw sites, the menus among them, so its state when a match is set up follows the
+ * frames spent in the menus. A match's set-up draws from it too: a created fighter's
+ * intro, for one, came out different on two games that had spent different times on
+ * the fighter screen, and the fight parted some 700 steps later (2026-10-30). In
+ * lockstep it is seeded from the lockstep seed when the match is set up, the same way
+ * the spectators' private copy is (crowd_control.c). */
+#define SHARED_RNG       0x0033DB5Cu
+#define SHARED_RNG_WORDS 6
+
+void defjam_lockstep_shared_seed(void)
+{
+    uint32_t seed;
+    int i;
+    if (!defjam_lockstep_enabled() || !defjam_pinned_seed(&seed)) return;
+    seed ^= SHARED_RNG;
+    for (i = 0; i < SHARED_RNG_WORDS - 1; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        MEM32(SHARED_RNG + (uint32_t)i * 4) = seed;
+    }
+    MEM32(SHARED_RNG + (SHARED_RNG_WORDS - 1) * 4) = 0;    /* +0x14 counts draws */
+}
+
+/* The main loop runs 0 to 4 steps per presented frame, one per queued 60 Hz record
+ * (docs/research/simulation-tick.md): the gate sub_000D75E0 on the frame object (its
+ * address at 0x3A017C) counts its calls in a frame at +0x1A5C and stops at the fifth.
+ * What is drawn is updated once a frame, and a created fighter's skeleton is read back
+ * from what was last drawn, so how steps and frames interleaved -- which follows the
+ * host's timing -- reached the fight: two games with the same inputs parted after a few
+ * hundred steps (2026-10-30). In lockstep every pass through the step marks the frame's
+ * count as used up, so a frame runs at most one step and every step follows a frame. A
+ * second record queued in the same frame is then dropped instead of run, which costs
+ * speed when the host stutters but never changes the fight. (The gate's own one-a-frame
+ * mode, +0x1A54, runs every other frame: half speed.) */
+#define FRAME_OBJECT_SLOT   0x003A017Cu
+#define FRAME_CALLS         0x1A5Cu
+#define FRAME_CALLS_LAST    4
+
+void defjam_lockstep_tick(void)
+{
+    static int said;
+    uint32_t frames;
+    if (!defjam_lockstep_enabled()) return;
+    frames = MEM32(FRAME_OBJECT_SLOT);
+    if (!frames) return;
+    MEM32(frames + FRAME_CALLS) = FRAME_CALLS_LAST;
+    if (!said) {
+        said = 1;
+        fprintf(stderr, "[LOCKSTEP] one fight step per presented frame\n");
+    }
+}

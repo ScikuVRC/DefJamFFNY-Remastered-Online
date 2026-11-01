@@ -1,47 +1,98 @@
 # Netplay
 
-Two players, one match, over the internet or a LAN. The design follows Dolphin's
-netplay: the two games exchange only what the players do, never game state, and
-rely on lockstep mode (docs/lockstep-mode.md) to play the same fight from the same
-inputs.
+Up to four players, one match, over the internet or a LAN. The design follows Dolphin's
+netplay: the games exchange only what the players do, never game state, and rely on
+lockstep mode (docs/lockstep-mode.md) to play the same fight from the same inputs.
 
 | Step | State |
 |---|---|
 | 1. Lockstep mode: the same inputs and seed play the same fight on any frame rate | done |
 | 2. Desync check: a per-step fingerprint of the fight (`RECOMP_TEST_SYNC`) | done, test runs only |
-| 3. Match setup: host/join, compatibility check, agreed match, start barrier | done |
+| 3. Match setup: lobby, compatibility check, agreed match, start barrier | done |
 | 4. Lockstep play: exchange inputs every step, input delay, live desync check | done; untested with a real pad and between machines |
-| 5. Rollback, spectating, a relay for players behind routers | later |
+| 5. Created fighters: each player's own, from their profile | done (one profile tested) |
+| 6. Rollback, spectating, a relay for players behind routers | later |
 
 ## Playing
 
 In the launcher, **Online Match**. One player hosts (a port, 7777 by default; it may
-need opening in the router), the other joins with `host-address:port`. When both are
-connected the games check each other and the launcher starts the game, which goes
-straight into the match. The host is player 1, the joiner player 2; each plays with
-their first pad (or keyboard). The host chooses the venue (Foundation, Terrordome,
-Hunt's Point, The Pit) and, under "Fighters (advanced)", the fighters by the front
-end's numbers (56 and 55 by default; their names are not mapped yet).
+need opening in the router; the lobby shows this computer's addresses to give the
+others), the others join with `host-address:port`.
+
+1. **Waiting room.** Everyone who joins is listed; each player ticks **I'm ready**.
+   The host chooses the match: the type (One on One, Team Match, Free For All and the
+   special matches: Window, Subway, Demolition, Inferno, Cage, Ring Out), the rules
+   and the venue (the special types have their own). When everyone is ready the host
+   presses **Pick fighters**.
+2. **Fighter select.** Each player picks their own fighter: any of the game's, or
+   **Created: <profile>**, the created fighter of one of their own profiles (the
+   saves in their data folder). The host picks the CPU's fighters for free slots. A
+   fighter (or a profile) can be in a match once. Each player ticks **Lock in my
+   fighter**; when everyone has, the host presses **Start match**.
+3. Every launcher closes and every game goes straight into the match.
 
 Start is held back during a netplay fight (pausing would stop one game only). The
 menus after the match are each player's own; the session ends with the match.
 
+## Created fighters
+
+A created fighter is part of its profile's save, so the profile has to be on every
+game. When the host starts, a player with a created fighter sends that profile's save
+folder to the host, and the host sends every player the match's saves: every created
+fighter's profile and its own Options. Each game writes them to a save folder of the
+session's own, `<data>/save/netplay-session-<player>` (made afresh each match), and
+plays from it (`RECOMP_SAVE_DIR`), so every game lists the same users in the same
+order and nothing in a player's own saves changes. Progress made in a netplay match
+is not saved to the player's own profile.
+
+The front end sets a created fighter up in steps that take time, and the commands
+follow the user-ID and fighter screens as a player goes through them
+(`match_commands` in netplay.c; `+F` waits F frames, fe_inject.c):
+
+```
+mainmenu      => StartBattleMode; SetMatchType; SetMatchRules; ControllerBind(-1);
+                 MemCard.ChooseMCDevice; ControllerBind(0); MemCard.GetNumUsers;
+                 MemCard.GetUserData(user) for each profile
+mainmenu +120 => MemCard.SetBMCurrentUserIndex(slot, user); Battle.LoadCreatePlayerData(n);
+                 Game.ContinueLoad(n)                       (opens the fighter screen)
+getattributesbm(-2 +300 =>  ControllerSetup(slot, ..., 99, ...); ChooseVenue; GetMatchInfo;
+                 Battle.SetCPViewportCam(n, 1 or 5); GetCreatePlayerName; StartGame
+```
+
+Without `GetUserData` the profile is not bound to the slot (the fighter screen shows a
+stock fighter); without the pauses the match loads to an empty arena.
+
+A created fighter's skeleton is read back from what was last drawn, so in lockstep
+the main loop runs at most one fight step per presented frame (lockstep.c); without
+that, two games with the same inputs parted a few hundred steps in. The shared random
+generator the menus draw from (`0x33DB5C`) is also seeded from the lockstep seed when
+the match is set up: a created fighter's intro is drawn from it.
+
 ## The session (src/hooks/netplay.c)
 
-One TCP connection, text lines:
+The host is the hub: every joiner has one TCP connection, to the host, which passes
+each joiner's in-game messages on to the others. Text lines (protocol 2):
 
-1. both: `HELLO <protocol> <version> <program> <data>`. The fingerprints are hashes of
-   the running program and of `game/default.xbe`; any difference ends the session
-   with the reason, because a different build or dump plays a different fight.
-2. host: `MATCH <seed> <venue> <fighter 0> <fighter 1>`; joiner: `READY`; host: `GO`.
-3. Both games set lockstep mode with that seed, and the front-end commands that
-   start the match from the main menu (`RECOMP_FE_INJECT`, src/hooks/fe_inject.c):
-   `Game.StartBattleMode`, `SetMatchType(0)`, `SetMatchRules(0)`,
-   `ControllerSetup(0,0,f0,0)`, `ControllerSetup(1,-1,f1,1)`, `ChooseVenue`,
-   `StartGame`. No menu is driven by pad presses, so nothing depends on timing.
-4. In the game, at the first fight step (after the crowd's first-step work), each
-   sends `AT 1` and waits for the other's (up to two minutes), so the fight starts
-   on both together whatever their loading times.
+1. joiner: `HELLO <protocol> <version> <program> <data> <name>`; host: `WELCOME
+   <player>` or `REFUSE <reason>`. The fingerprints are hashes of the running program
+   and of `game/default.xbe`; any difference refuses the player with the reason,
+   because a different build or dump plays a different fight.
+2. In the lobby the host sends `LOBBY <type> <rules> <venue> <f0..f3> <slots> <players>
+   <phase> <ready mask> <name0..3> <profile0..3>` whenever it changes; a joiner sends
+   `READYUP <0|1>` and `PICK <fighter> [<profile>]` (profiles in hex; `-` is none).
+3. The host starts: `MATCH <seed> <type> <rules> <venue> <slots> <f0..f3> <t0..t3>
+   <o0..o3> <profile0..3>`. The saves follow (`FILE <folder> <name> <size>`, `DATA
+   <hex>`..., `END`; a joiner ends its own with `SENT`, the host its with `FILES`), then
+   each joiner `READY` and the host `GO`.
+4. Every game sets lockstep mode with that seed, the session's save folder and the
+   front-end commands that start the match from the main menu (`RECOMP_FE_INJECT`,
+   src/hooks/fe_inject.c): `Game.StartBattleMode`, `SetMatchType`, `SetMatchRules`,
+   `ControllerSetup` per slot (the slot is its own controller), `ControllerSelect` for
+   a Team Match's places, `ChooseVenue`, `StartGame` (with created fighters, the steps
+   above). No menu is driven by pad presses, so nothing depends on timing.
+5. In the game, at the first fight step each sends `AT <player> 1` and waits for every
+   other (up to two minutes), so the fight starts on all together whatever their
+   loading times.
 
 Player 2's slot is set up as the CPU: a human slot 2 needs a second pad plugged in,
 and match set-up crashed without one (`sub_001BBC10` on slot 2's record). Step 4
@@ -114,7 +165,10 @@ Terrordome (`RECOMP_NETPLAY_VENUE=6`) started there on both and stayed in sync.
 - Player 2's slot is still the CPU's in the game's own set-up (its name on screen,
   its AI still running under the input).
 - TCP: a lost packet stalls both games until it is resent. UDP and rollback later.
-- Only One on One, at four venues; fighters are chosen by number, not by name yet.
+- Three- and four-player matches (Team Match, Free For All) and created fighters in
+  them are untested; so is a match with two different players' profiles (the user
+  numbers assume the game lists profiles in folder order).
+- Every player needs the same file mods (docs/mod-manager.md#file-mods).
 - The intermittent start-up stall (stuck at "press start": the USB host controller's
   first deferred routine ran seconds late and the driver gave up on the pad) is fixed
   in the toolkit: the timer thread, pinned to the guest core, went unscheduled for

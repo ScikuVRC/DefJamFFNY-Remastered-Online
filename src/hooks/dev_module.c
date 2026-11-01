@@ -30,6 +30,8 @@
 #include "guest_call.h"
 #include "recorder.h"
 #include "dev_module.h"
+#include "fe_inject.h"
+#include "lockstep.h"
 
 #define MANAGER_SLOT    0x002FB1A4u     /* registry 0x2FB148, subsystem 0x17: CRunModuleMan */
 #define FRONTEND_SLOT   0x002FB17Cu     /* registry 0x2FB148, subsystem 0x0D: the front end */
@@ -159,12 +161,15 @@ void dev_module_after_call(const char *text)
     if (strstr(low, s_anchor)) s_mode = 2;
 }
 
-/* The run-module manager's tick (thiscall, ecx = the manager), on the game's main thread. */
+/* The run-module manager's tick (thiscall, ecx = the manager), on the game's main thread. It also
+ * runs the front-end commands that wait some frames (RECOMP_FE_INJECT "+F", src/hooks/fe_inject.c). */
 void dev_module_manager_enter(void)
 {
     uint32_t mgr = g_ecx, obj;
     int i;
 
+    fe_inject_tick();
+    defjam_lockstep_tick();
     if (s_mode < 0) read_env();
     if (!mgr || MEM32(mgr + MGR_STATE) != 0 || MEM32(mgr + MGR_PENDING) != 0) return;
     if (s_leave && MEM32(mgr + MGR_CURRENT) == s_object) {

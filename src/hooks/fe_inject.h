@@ -6,13 +6,17 @@
 typedef struct FeInjectRule {
     char anchor[96];        /* lower case */
     int want, seen, fired;
-    char commands[384];     /* separated by ';' */
+    int delay, wait;        /* game frames to wait after the anchor; frames left (0 = none pending) */
+    char commands[768];     /* separated by ';' */
 } FeInjectRule;
 
-/* Rules from "anchor[#N]=>cmd[;cmd]|...". Returns how many were read. */
+/* Rules from "anchor[#N][+F]=>cmd[;cmd]|...". Returns how many were read. */
 int fe_inject_parse(const char *spec, FeInjectRule *rules, int max);
 
 /* Called by the FuncCall hook after each front-end call has run. */
 void fe_inject_after_call(const char *text);
+
+/* Called once a game frame (the run-module manager's tick): runs the rules whose wait is over. */
+void fe_inject_tick(void);
 
 #endif

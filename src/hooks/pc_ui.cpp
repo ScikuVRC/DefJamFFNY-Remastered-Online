@@ -202,6 +202,7 @@ static const char *friendly(const char *section, const char *key)
         {"display", "widescreen_fov_cap", "Widest field of view (degrees)"},
         {"textures", "enabled", "Use HD texture packs"},
         {"textures", "packs", "Pack folders"},
+        {"mods", "packs", "File mod packs (music, models, arenas)"},
         {"textures", "cache_mb", "Texture memory budget (MiB)"},
         {"textures", "dump", "Capture source textures"},
         {"textures", "dump_limit", "Maximum new captures"},
@@ -791,6 +792,9 @@ static void page_textures()
     }
     settings_group("textures", {"enabled"});
     if (locked) ImGui::TextWrapped("Pack selection is set for this run by RECOMP_TEXTURE_PACKS.");
+    // Packs whose files folder replaces game files (src/hooks/file_mods.c, docs/mod-manager.md).
+    settings_group("mods", {"packs"});
+    ImGui::TextDisabled("A pack's files folder, laid out like the game folder, replaces those game files.");
     if (ImGui::Button("Refresh local mods")) {
         refresh_packs(true);
         if (launcher) pcui::mod_start("status");
@@ -1400,65 +1404,371 @@ static int g_page = 0;
 static bool g_advanced = false, g_select_page = false, g_return_focus = false, g_setup_request = false;
 static bool g_online_request = false;
 
-// Online Match: host or join a netplay session (src/hooks/netplay.c). When both games
-// have agreed the match, the launcher closes and the game starts it.
+// Online Match: a lobby for up to four players (src/hooks/netplay.c). One player hosts,
+// the others join with the host's address; the host chooses the match type, the rules
+// and the venue, everyone their own fighter, and the CPU fighters fill the free slots.
+// When the host starts, every launcher closes and every game goes into the match.
+static bool choice_combo(const char *label, int *id, const NetplayChoice *list, int count,
+                         const int *taken = nullptr, int taken_count = 0)
+{
+    const char *current = netplay_choice_name(list, count, *id);
+    bool changed = false;
+    if (ImGui::BeginCombo(label, current ? current : "?"))
+    {
+        for (int i = 0; i < count; i++)
+        {
+            bool selected = list[i].id == *id, used = false;
+            for (int t = 0; t < taken_count; t++)
+                used |= taken[t] == list[i].id;
+            // A fighter can be in a match once.
+            if (ImGui::Selectable(list[i].name, selected, used && !selected ? ImGuiSelectableFlags_Disabled : 0)
+                && !selected)
+            {
+                *id = list[i].id;
+                changed = true;
+            }
+            if (selected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    return changed;
+}
+
+// A slot's fighter as the lobby shows it: a created fighter by its profile.
+static const char *fighter_label(const NetplayMatch &m, int slot, const NetplayChoice *list, int count, char *buf,
+                                 size_t size)
+{
+    if (m.fighter[slot] == NETPLAY_CREATED_FIGHTER)
+    {
+        snprintf(buf, size, "Created: %s", m.profile[slot]);
+        return buf;
+    }
+    const char *name = netplay_choice_name(list, count, m.fighter[slot]);
+    return name ? name : "?";
+}
+
+// The player's own slot: any fighter, or the created fighter of one of their profiles.
+static void my_fighter_combo(const NetplayMatch &m, int slot, const NetplayChoice *list, int count, const int *taken,
+                             int taken_count)
+{
+    static char profiles[16][NETPLAY_PROFILE_LEN];
+    static int profile_count = -1;
+    char buf[64];
+    if (profile_count < 0)
+        profile_count = netplay_profiles(profiles, 16);
+    if (!ImGui::BeginCombo("##mine", fighter_label(m, slot, list, count, buf, sizeof buf)))
+        return;
+    if (profile_count > 0)
+    {
+        ImGui::SeparatorText("Your created fighters");
+        for (int i = 0; i < profile_count; i++)
+        {
+            bool selected = m.fighter[slot] == NETPLAY_CREATED_FIGHTER && !strcmp(m.profile[slot], profiles[i]);
+            bool used = false;
+            for (int o = 0; o < m.slots; o++)
+                used |= o != slot && m.fighter[o] == NETPLAY_CREATED_FIGHTER && !strcmp(m.profile[o], profiles[i]);
+            snprintf(buf, sizeof buf, "Created: %s", profiles[i]);
+            if (ImGui::Selectable(buf, selected, used ? ImGuiSelectableFlags_Disabled : 0) && !selected)
+                netplay_pick_created(profiles[i]);
+        }
+        ImGui::SeparatorText("Fighters");
+    }
+    for (int i = 0; i < count; i++)
+    {
+        bool selected = list[i].id == m.fighter[slot], used = false;
+        for (int t = 0; t < taken_count; t++)
+            used |= taken[t] == list[i].id;
+        if (ImGui::Selectable(list[i].name, selected, used && !selected ? ImGuiSelectableFlags_Disabled : 0)
+            && !selected)
+            netplay_pick(list[i].id);
+        if (selected)
+            ImGui::SetItemDefaultFocus();
+    }
+    ImGui::EndCombo();
+}
+
 static void ui_online_match(UiResult &result, float width, float scale)
 {
-    static char port[8] = "7777", address[128] = "";
-    // Venues by their Game.ChooseVenue index (config/scenario-catalog.json); fighters by
-    // the front end's numbers, whose names are not mapped yet.
-    static const char *venue_names[] = {"Foundation", "Terrordome", "Hunt's Point", "The Pit"};
-    static const int venue_index[] = {1, 6, 14, 19};
-    static int venue = 0, fighter[2] = {56, 55};
+    static char port[8] = "7777", address[128] = "", name[NETPLAY_NAME_LEN] = "";
+    static const char *rule_names[] = {"Standard Rules", "Crowd Votes", "No Submissions"};
+    if (!name[0])
+    {
+        const char *user = getenv("RECOMP_NETPLAY_NAME"), *join = getenv("RECOMP_LAUNCHER_JOIN_ADDRESS");
+        if (!user || !*user)
+            user = getenv("USERNAME");
+        snprintf(name, sizeof name, "%s", user && *user ? user : "Player");
+        if (join && *join)      // a test's (RECOMP_LAUNCHER_SCRIPT cannot type)
+            snprintf(address, sizeof address, "%s", join);
+    }
     NetplayState state = netplay_state();
-    bool busy = state == NETPLAY_LISTENING || state == NETPLAY_CONNECTING || state == NETPLAY_HANDSHAKE;
+    NetplayLobby lobby;
+    bool in_lobby = netplay_lobby(&lobby);
+    bool connecting = state == NETPLAY_CONNECTING || state == NETPLAY_HANDSHAKE;
+    bool hosting = in_lobby && lobby.local_player == 0;
+    const NetplayChoice *fighters, *venues;
+    const NetplayMatchType *types;
+    int fighter_count = netplay_fighters(&fighters), venue_count = netplay_venues(&venues);
+    int type_count = netplay_match_types(&types);
     char status[160];
+    // Centred and never taller than the window: the lobby scrolls instead of hiding its buttons.
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowPos(ImVec2(display.x * 0.5f, display.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(display.x * 0.95f, display.y * 0.92f));
     if (!ImGui::BeginPopupModal("Online Match", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
-    ImGui::PushTextWrapPos(std::min(ImGui::GetFontSize() * 34, std::max(120.0f, width - 100 * scale)));
-    ImGui::TextWrapped("Play a One on One against someone with the same version and the same game "
-                       "dump. One player hosts; the other joins with the host's address. The host "
-                       "may need to open the port in their router.");
-    ImGui::BeginDisabled(busy || state == NETPLAY_READY);
-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10);
-    ImGui::Combo("Venue (host)", &venue, venue_names, IM_ARRAYSIZE(venue_names));
-    if (ImGui::TreeNode("Fighters (host, advanced)"))
+    float field = ImGui::GetFontSize() * 14;
+    ImGui::PushTextWrapPos(std::min(ImGui::GetFontSize() * 38, std::max(120.0f, width - 100 * scale)));
+
+    if (!in_lobby && !connecting && state != NETPLAY_READY)
     {
-        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 6);
-        ImGui::InputInt("Player 1", &fighter[0]);
-        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 6);
-        ImGui::InputInt("Player 2", &fighter[1]);
-        ImGui::TextDisabled("The front end's fighter numbers; 56 and 55 are the defaults.");
-        ImGui::TreePop();
+        // Not in a lobby yet: host one or join one.
+        ImGui::TextWrapped("Fight online with up to four players who have the same version of the game "
+                           "and the same game dump. One player hosts a lobby; the others join it with the "
+                           "host's address. The host may need to open the port in their router.");
+        ImGui::Spacing();
+        ImGui::SetNextItemWidth(field);
+        if (ImGui::InputText("Your name", name, sizeof name))
+            netplay_set_name(name);
+        ImGui::SeparatorText("Host a lobby");
+        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
+        ImGui::InputText("Port", port, sizeof port, ImGuiInputTextFlags_CharsDecimal);
+        ImGui::SameLine();
+        if (ImGui::Button("Host"))
+        {
+            netplay_set_name(name);
+            netplay_host((uint16_t)atoi(port));
+        }
+        ui_target("OnlineHost");
+        ImGui::SeparatorText("Join a lobby");
+        ImGui::SetNextItemWidth(field);
+        ImGui::InputTextWithHint("Address", "host:7777", address, sizeof address);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!address[0]);
+        if (ImGui::Button("Join"))
+        {
+            netplay_set_name(name);
+            netplay_join(address);
+        }
+        ui_target("OnlineJoin");
+        ImGui::EndDisabled();
     }
-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
-    ImGui::InputText("Port", port, sizeof port, ImGuiInputTextFlags_CharsDecimal);
-    ImGui::SameLine();
-    if (ImGui::Button("Host"))
+    else if (in_lobby)
     {
-        netplay_choose(venue_index[venue], fighter[0], fighter[1]);
-        netplay_host((uint16_t)atoi(port));
+        const NetplayMatchType *type = netplay_match_type(lobby.match.type);
+        int fit = type ? type->fighters : 2;
+        bool picking = lobby.phase == NETPLAY_PHASE_PICKING;
+        bool me_ready = lobby.local_player >= 0 && lobby.ready[lobby.local_player];
+        int ready_count = 0;
+        for (int p = 0; p < NETPLAY_MAX_PLAYERS; p++)
+            ready_count += lobby.name[p][0] && lobby.ready[p];
+        const ImVec4 green(0.45f, 0.85f, 0.45f, 1), amber(1, 0.75f, 0.3f, 1);
+
+        // Where this lobby is, and how far it has got.
+        if (hosting)
+        {
+            static char addresses[4][48];
+            static int address_count = -1;
+            if (address_count < 0)
+                address_count = netplay_local_addresses(addresses, 4);
+            ImGui::Text("Your lobby, on port %s", port);
+            if (address_count > 0)
+            {
+                std::string list;
+                for (int i = 0; i < address_count; i++)
+                    list += std::string(i ? ", " : "") + addresses[i] + ":" + port;
+                ImGui::TextDisabled("Players on your network join %s; over the internet, your public address "
+                                    "(with the port open in your router).", list.c_str());
+            }
+        }
+        else
+        {
+            ImGui::Text("%s's lobby", lobby.name[0]);
+        }
+        ImGui::TextColored(picking ? green : amber, "%s  -  %d/%d players, %d %s", picking ? "Pick your fighters" :
+                           "Waiting for players", lobby.players, NETPLAY_MAX_PLAYERS, ready_count,
+                           picking ? "locked in" : "ready");
+
+        if (!picking)
+        {
+            // The waiting room: who is here and who is ready.
+            if (ImGui::BeginTable("room", 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingFixedFit))
+            {
+                ImGui::TableSetupColumn("Player", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 12);
+                ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 8);
+                ImGui::TableHeadersRow();
+                for (int p = 0; p < NETPLAY_MAX_PLAYERS; p++)
+                {
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    if (!lobby.name[p][0])
+                    {
+                        ImGui::TextDisabled("Open");
+                        ImGui::TableNextColumn();
+                        ImGui::TextDisabled("waiting for a player");
+                        continue;
+                    }
+                    ImGui::Text("%s%s%s", lobby.name[p], p == 0 ? " (host)" : "",
+                                p == lobby.local_player ? " (you)" : "");
+                    ImGui::TableNextColumn();
+                    if (lobby.ready[p])
+                        ImGui::TextColored(green, "Ready");
+                    else
+                        ImGui::TextDisabled("Not ready");
+                }
+                ImGui::EndTable();
+            }
+        }
+        else
+        {
+            // Picking: each slot's fighter; everyone picks their own and locks it in.
+            if (ImGui::BeginTable("players", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingFixedFit))
+            {
+                ImGui::TableSetupColumn("Slot");
+                ImGui::TableSetupColumn("Player", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 9);
+                ImGui::TableSetupColumn("Fighter", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 14);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
+                ImGui::TableHeadersRow();
+                for (int slot = 0; slot < fit; slot++)
+                {
+                    int owner = lobby.match.owner[slot];
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    if (lobby.match.type == 1)
+                        ImGui::Text("P%d (team %d)", slot + 1, lobby.match.team[slot] + 1);
+                    else
+                        ImGui::Text("P%d", slot + 1);
+                    ImGui::TableNextColumn();
+                    if (owner >= 0)
+                        ImGui::Text("%s%s", lobby.name[owner], owner == lobby.local_player ? " (you)" : "");
+                    else
+                        ImGui::TextDisabled("CPU");
+                    ImGui::TableNextColumn();
+                    int fighter = lobby.match.fighter[slot];
+                    int others[NETPLAY_MAX_PLAYERS], other_count = 0;
+                    for (int o = 0; o < fit; o++)
+                        if (o != slot)
+                            others[other_count++] = lobby.match.fighter[o];
+                    ImGui::PushID(slot);
+                    ImGui::SetNextItemWidth(-1);
+                    if (owner == lobby.local_player && !me_ready)
+                    {
+                        my_fighter_combo(lobby.match, slot, fighters, fighter_count, others, other_count);
+                    }
+                    else if (hosting && owner < 0)
+                    {
+                        if (choice_combo("##cpu", &fighter, fighters, fighter_count, others, other_count))
+                            netplay_set_slot(slot, fighter, -1);
+                    }
+                    else
+                    {
+                        char buf[64];
+                        ImGui::TextUnformatted(fighter_label(lobby.match, slot, fighters, fighter_count, buf, sizeof buf));
+                    }
+                    ImGui::TableNextColumn();
+                    if (owner >= 0 && lobby.ready[owner])
+                        ImGui::TextColored(green, "Locked in");
+                    else if (owner >= 0)
+                        ImGui::TextDisabled("Picking");
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+        }
+        if (lobby.players > fit)
+            ImGui::TextColored(amber, "%d players are here; %s has %d slots.", lobby.players,
+                               type ? type->name : "this match", fit);
+
+        // The match: the host chooses, everyone sees it.
+        ImGui::SeparatorText("Match");
+        ImGui::BeginDisabled(!hosting);
+        ImGui::SetNextItemWidth(field);
+        if (ImGui::BeginCombo("Match type", type ? type->name : "?"))
+        {
+            for (int i = 0; i < type_count; i++)
+            {
+                char label[64];
+                snprintf(label, sizeof label, "%s (%d fighters)", types[i].name, types[i].fighters);
+                if (ImGui::Selectable(label, types[i].type == lobby.match.type))
+                    netplay_set_match(types[i].type, -1, -1);
+            }
+            ImGui::EndCombo();
+        }
+        if (type && type->rules)
+        {
+            int rules = lobby.match.rules;
+            ImGui::SetNextItemWidth(field);
+            if (ImGui::Combo("Rules", &rules, rule_names, IM_ARRAYSIZE(rule_names)))
+                netplay_set_match(lobby.match.type, rules, -1);
+        }
+        if (type && type->venue < 0)
+        {
+            int venue = lobby.match.venue;
+            ImGui::SetNextItemWidth(field);
+            if (choice_combo("Venue", &venue, venues, venue_count))
+                netplay_set_match(lobby.match.type, -1, venue);
+        }
+        else
+        {
+            const char *shown = netplay_choice_name(venues, venue_count, lobby.match.venue);
+            ImGui::Text("Venue: %s (this match type's own)", shown ? shown : "?");
+        }
+        ImGui::EndDisabled();
+
+        // Ready / lock in, and the host's step to the next phase.
+        ImGui::Spacing();
+        bool ready = me_ready;
+        if (ImGui::Checkbox(picking ? "Lock in my fighter" : "I'm ready", &ready))
+            netplay_set_ready(ready);
+        ui_target("OnlineReady");
+        if (hosting)
+        {
+            bool everyone = ready_count == lobby.players;
+            ImGui::SameLine();
+            if (!picking)
+            {
+                ImGui::BeginDisabled(lobby.players < 2 || !everyone || lobby.players > fit);
+                if (ImGui::Button("Pick fighters"))
+                    netplay_set_phase(NETPLAY_PHASE_PICKING);
+                ui_target("OnlinePick");
+                ImGui::EndDisabled();
+                if (lobby.players < 2)
+                    ImGui::TextDisabled("Waiting for players to join...");
+                else if (!everyone)
+                    ImGui::TextDisabled("Waiting for everyone to be ready...");
+            }
+            else
+            {
+                ImGui::BeginDisabled(!everyone || lobby.players < 2 || lobby.players > fit);
+                if (ImGui::Button("Start match"))
+                    netplay_start();
+                ui_target("OnlineStart");
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+                if (ImGui::Button("Back to the waiting room"))
+                    netplay_set_phase(NETPLAY_PHASE_WAITING);
+                if (!everyone)
+                    ImGui::TextDisabled("Waiting for everyone to lock in...");
+            }
+        }
+        else
+        {
+            ImGui::TextDisabled(picking ? "The host starts the match when everyone has locked in."
+                                        : "The host moves on to fighter select when everyone is ready.");
+        }
     }
-    ui_target("OnlineHost");
-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 14);
-    ImGui::InputTextWithHint("Address", "host:7777", address, sizeof address);
-    ImGui::SameLine();
-    ImGui::BeginDisabled(!address[0]);
-    if (ImGui::Button("Join"))
-        netplay_join(address);
-    ui_target("OnlineJoin");
-    ImGui::EndDisabled();
-    ImGui::EndDisabled();
+
     netplay_status(status, sizeof status);
     if (status[0])
         ImGui::TextWrapped("%s", status);
     if (state == NETPLAY_READY)
     {
-        // Both sides agreed: start the game, which goes straight into the match.
+        // Everyone agreed: start the game, which goes straight into the match.
         result.play = true;
         ImGui::CloseCurrentPopup();
     }
-    if (ImGui::Button(busy ? "Cancel" : "Close"))
+    bool busy = in_lobby || connecting;
+    if (ImGui::Button(busy ? "Leave" : "Close"))
     {
         if (busy)
             netplay_cancel();

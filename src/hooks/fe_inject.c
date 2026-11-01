@@ -8,10 +8,13 @@
  * for too, by handing the same handler a string of its own -- on the same thread,
  * at a moment the front end itself was making a call:
  *
- *     RECOMP_FE_INJECT=<anchor>[#N]=><command>[;<command>...][|<anchor>=>...]
+ *     RECOMP_FE_INJECT=<anchor>[#N][+F]=><command>[;<command>...][|<anchor>=>...]
  *
  * After the Nth front-end call containing <anchor> (case-insensitive, N defaults
- * to 1) has run, each <command> is dispatched in turn, once. For example
+ * to 1) has run, each <command> is dispatched in turn, once. With +F they wait F
+ * game frames first and run from the run-module manager's tick, on the same
+ * thread: some screens start work that takes frames (loading a profile's created
+ * fighter, for one) and make no front-end call when it is done. For example
  *
  *     RECOMP_FE_INJECT="getscreeninfo(story/crib#1=>Story.SomeMethod(arg)"
  *
@@ -56,12 +59,17 @@ int fe_inject_parse(const char *spec, FeInjectRule *rules, int max)
         FeInjectRule *r = &rules[count];
         memset(r, 0, sizeof *r);
         if (arrow && arrow < spec + len) {
-            const char *hash = NULL, *p;
+            const char *hash = NULL, *plus = NULL, *p, *stop;
             for (p = spec; p < arrow; p++)
                 if (*p == '#') hash = p;
-            lower(r->anchor, sizeof r->anchor, spec, (size_t)((hash ? hash : arrow) - spec));
+            for (p = hash ? hash : spec; p < arrow; p++)
+                if (*p == '+') plus = p;
+            stop = hash ? hash : plus ? plus : arrow;
+            lower(r->anchor, sizeof r->anchor, spec, (size_t)(stop - spec));
             r->want = hash ? atoi(hash + 1) : 1;
             if (r->want < 1) r->want = 1;
+            r->delay = plus ? atoi(plus + 1) : 0;
+            if (r->delay < 0) r->delay = 0;
             {
                 size_t n = (size_t)(spec + len - (arrow + 2));
                 if (n >= sizeof r->commands) n = sizeof r->commands - 1;
@@ -92,6 +100,22 @@ static void dispatch(const char *command)
     guest_regs_restore(&saved);
 }
 
+static void run_rule(FeInjectRule *r)
+{
+    char commands[sizeof r->commands], *cmd, *next;
+    memcpy(commands, r->commands, sizeof commands);
+    for (cmd = commands; cmd && *cmd; cmd = next) {
+        next = strchr(cmd, ';');
+        if (next) *next++ = 0;
+        while (*cmd == ' ') cmd++;
+        if (!*cmd) continue;
+        fprintf(stderr, "[FE-INJECT] after \"%s\" #%d+%d: %s\n", r->anchor, r->want, r->delay, cmd);
+        fflush(stderr);
+        recorder_event_text("fe_inject", "command", cmd);
+        dispatch(cmd);
+    }
+}
+
 void fe_inject_after_call(const char *text)
 {
     char low[192];
@@ -106,19 +130,17 @@ void fe_inject_after_call(const char *text)
     lower(low, sizeof low, text, strlen(text));
     for (i = 0; i < s_count; i++) {
         FeInjectRule *r = &s_rules[i];
-        char commands[sizeof r->commands], *cmd, *next;
         if (r->fired || !strstr(low, r->anchor) || ++r->seen < r->want) continue;
         r->fired = 1;
-        memcpy(commands, r->commands, sizeof commands);
-        for (cmd = commands; cmd && *cmd; cmd = next) {
-            next = strchr(cmd, ';');
-            if (next) *next++ = 0;
-            while (*cmd == ' ') cmd++;
-            if (!*cmd) continue;
-            fprintf(stderr, "[FE-INJECT] after \"%s\" #%d: %s\n", r->anchor, r->want, cmd);
-            fflush(stderr);
-            recorder_event_text("fe_inject", "command", cmd);
-            dispatch(cmd);
-        }
+        if (r->delay) r->wait = r->delay;
+        else run_rule(r);
     }
+}
+
+void fe_inject_tick(void)
+{
+    int i;
+    for (i = 0; i < s_count; i++)
+        if (s_rules[i].wait > 0 && --s_rules[i].wait == 0)
+            run_rule(&s_rules[i]);
 }

@@ -319,21 +319,25 @@ static uint32_t fnv(uint32_t base, uint32_t bytes)
 
 /* RECOMP_TEST_SYNC_DUMP=<step>,<step>,...: at those steps, the raw words behind the
  * hashes (each fighter record, then the pad table), one [TEST-SYNC] line each, so
- * two runs can be compared word by word where their hashes part. */
+ * two runs can be compared word by word where their hashes part. A range <a>-<b>
+ * dumps every step in it, the fighter records only (a part that parts at a step no
+ * one can name in advance). */
 static void sync_dump(void)
 {
     static char line[2 * STRIDE * 9 + 256];
     const char *list = getenv("RECOMP_TEST_SYNC_DUMP");
     char *end;
-    int slot, due = 0;
+    int slot, due = 0, fighters_only = 0;
     while (list && *list && !due) {
-        long long want = strtoll(list, &end, 10);
+        long long want = strtoll(list, &end, 10), last = want;
         if (end == list) break;
-        due = want == (long long)s_step;
+        if (*end == '-') last = strtoll(end + 1, &end, 10);
+        due = (long long)s_step >= want && (long long)s_step <= last;
+        fighters_only = due && last != want;
         list = *end == ',' ? end + 1 : end;
     }
     if (!due) return;
-    for (slot = 0; slot <= SLOTS; slot++) {
+    for (slot = 0; slot < (fighters_only ? SLOTS : SLOTS + 1); slot++) {
         uint32_t base = slot < SLOTS ? record(slot) : 0x003B8F48u;
         uint32_t bytes = slot < SLOTS ? STRIDE : SLOTS * 0x20u, i;
         size_t n = (size_t)snprintf(line, sizeof line,
@@ -345,7 +349,7 @@ static void sync_dump(void)
     }
     /* Then the crowd's parts behind its two hashes: spectators as parts 100 + member,
      * the background crowd's entries as part 200 (crowd_control.c). */
-    for (slot = 0; slot <= 64; slot++) {
+    for (slot = 0; slot <= 64 && !fighters_only; slot++) {
         uint32_t base, bytes, i;
         size_t n;
         if (!defjam_crowd_hash_part(slot, &base, &bytes)) continue;
@@ -606,6 +610,7 @@ void defjam_test_ai_seed(uint32_t stack)
         MEM32(stack + 4) = seed;        /* deliberate, opt-in; see the header */
         forced = 1;
     }
+    defjam_lockstep_shared_seed();      /* lockstep only */
     if (!defjam_test_observations_enabled()) return;
     seed = MEM32(stack + 4);
     if (!budget()) return;

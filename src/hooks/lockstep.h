@@ -21,4 +21,12 @@ int defjam_pinned_increment(uint32_t *increment);
 /* The utility generator's state word (0x39C160) as the fight step sees it: in lockstep
  * the step draws from a private copy, which the menus' draws do not move. */
 uint32_t defjam_lockstep_utility_state(void);
+
+/* At match set-up (with the AI seeds): the shared generator at 0x33DB5C, which the menus
+ * draw from every frame, seeded from the lockstep seed. */
+void defjam_lockstep_shared_seed(void);
+
+/* Every pass of the main loop's step (the run-module manager's tick): in lockstep, one
+ * fight step per presented frame (see lockstep.c). */
+void defjam_lockstep_tick(void);
 #endif
