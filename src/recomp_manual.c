@@ -42,6 +42,7 @@
 #include "patches/options_volume.h"
 #include "hooks/save_activity.h"
 #include "patches/menu_geometry.h"
+#include "patches/cinema_timing.h"
 
 /* Crowd test controls (src/hooks/crowd_control.c, RECOMP_TEST_CROWD; off unless set). */
 void defjam_crowd_match_start(void);
@@ -263,6 +264,11 @@ void sub_00077040_enter(void) { dev_module_manager_enter(); }
 void sub_00077C40_enter(void) { dev_module_trace(1); }
 void sub_00077A40_enter(void) { dev_module_trace(3); }
 void sub_00077B20_enter(void) { dev_module_trace(4); }
+/* Story cutscenes: a zero-step frame no longer advances the scene's animation (SC04's
+ * audio fell behind its picture; patches/cinema_timing.c). Direct callers reach this
+ * wrapper too; it runs the generated renderer and changes no guest register. */
+extern void sub_000766B0_gen(void);
+void sub_000766B0(void) { defjam_cinema_render(sub_000766B0_gen); }
 void sub_00077DD0_enter(void) { dev_module_trace(7); }
 /* The per-fighter pad reader: RECOMP_TEST_INPUT replaces what it is about to read, and
  * in a netplay match the exchanged input replaces it on both games (netplay.c). */
