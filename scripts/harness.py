@@ -288,6 +288,24 @@ ROUTES = {
         "until": "game.getmatchsummary(", "after": 6, "secs": 900,
         "shots": "",
     },
+    # After the match: A on the summary, then the "REMATCH? YES / NO" box (it opens with
+    # Game.GetHeroFighterNumber; NO is selected), YES or NO; NO goes on to a tip and then
+    # Game.Quit(). Netplay holds a rematch until every player has chosen it
+    # (src/hooks/netplay.c). Each match calls GetMatchSummary twice.
+    "netplay-rematch": {
+        "help": "netplay session, then YES to the rematch; until the second match's summary",
+        "stages": ["game.getmatchsummary(=a@8", "game.updatematchrewardspoints(=a@6",
+                   "rewardun.swf#2=left@3;a@4.5"],
+        "until": "game.getmatchsummary(#3", "after": 6, "secs": 1800,
+        "shots": "@game.getmatchsummary(,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80",
+    },
+    "netplay-quit": {
+        "help": "netplay session, then NO to the rematch",
+        "stages": ["game.getmatchsummary(=a@8", "game.updatematchrewardspoints(=a@6",
+                   "rewardun.swf#2=a@3;a@8;a@13"],
+        "until": "game.quit(", "after": 15, "secs": 1200,
+        "shots": "@game.getmatchsummary(,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80",
+    },
     # The same with a player on the live pad (the emulated USB pad, as a real one), from
     # 25 s after the main menu when the match has loaded: walking right and attacking,
     # or (-left) walking left with B and Y, for the other side of a session.
