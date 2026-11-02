@@ -16,10 +16,9 @@
  *   3. the host starts: MATCH <seed> <type> <rules> <venue> <slots> <fighters>
  *      <teams> <owners> <profiles>. A joiner with a created fighter sends its profile's
  *      save (FILE <folder> <name> <size>, DATA <hex>..., END), and every joiner then
- *      SENT; the host sends every joiner the match's saves -- the created fighters'
- *      profiles and its own Options -- the same way, then FILES. Each game puts them
- *      in a save folder of the session's own (RECOMP_SAVE_DIR), so a profile is the
- *      same user on every game, and answers READY; the host sends GO. The launcher (or
+ *      SENT; the host sends every joiner the created fighters' profiles the same way,
+ *      then FILES. Each game adds the others' to its player's own saves for the
+ *      session (place_saves), and answers READY; the host sends GO. The launcher (or
  *      a scripted run) starts the game, which goes straight from the main menu into
  *      that match through the front end's own commands (fe_inject.c);
  *   4. in the match: AT <player> <step> (the start barrier), IN <player> <step>
@@ -860,10 +859,10 @@ static int host_lobby(void)
 }
 
 /* ---- The match's saves ------------------------------------------------------------ *
- * A created fighter is part of its profile's save, so the profile goes to every game,
- * and every game plays from the same saves: the profiles and the host's Options, in a
- * save folder of the session's own. The game lists its users from the folders there,
- * so a profile is the same user number on every game. */
+ * A created fighter is part of its profile's save, so every created fighter's profile
+ * goes to every game. Each game plays from its player's own saves -- their profiles,
+ * their options and unlocks, and what the game saves during the session stays theirs --
+ * with the other players' profiles added for the session (place_saves). */
 #define MAX_FILES       24
 #define MAX_FILE        (512 * 1024)
 #define CHUNK           200         /* bytes per DATA line */
@@ -994,7 +993,8 @@ static int file_line(int p, const char *line)
     return 0;
 }
 
-/* The session's save folder, next to the player's own saves, made afresh from s_files. */
+/* The session's save folder, next to the player's own saves, made afresh from s_files:
+ * the fallback of place_saves. */
 static int write_session(void)
 {
     char root[1024], dir[1200], path[1400], folders[64][64], files[16][64];
@@ -1033,27 +1033,156 @@ static int write_session(void)
     return 1;
 }
 
+/* Is the file at `path` exactly f's contents? */
+static int same_file(const char *path, const SaveFile *f)
+{
+    FILE *in = fopen(path, "rb");
+    unsigned char buf[4096];
+    size_t off = 0, n;
+    int same = 1;
+    if (!in) return 0;
+    while (same && (n = fread(buf, 1, sizeof buf, in)) > 0) {
+        same = off + n <= f->size && !memcmp(buf, f->data + off, n);
+        off += n;
+    }
+    fclose(in);
+    return same && off == f->size;
+}
+
+static int dir_exists(const char *path)
+{
+#if defined(_WIN32)
+    DWORD a = GetFileAttributesA(path);
+    return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_DIRECTORY);
+#else
+    struct stat st;
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+#endif
+}
+
+static void remove_folder(const char *dir)
+{
+    char files[16][64], path[1400];
+    int n = netplay_list_dir(dir, 0, files, 16), i;
+    for (i = 0; i < n; i++) {
+        snprintf(path, sizeof path, "%s" PATH_SEP "%s", dir, files[i]);
+        remove(path);
+    }
+    remove_dir(dir);
+}
+
+/* The profiles added to the player's saves for a session are listed in
+ * <save root>/netplay-guests.txt, one folder a line, and taken out again when the game
+ * closes, or, after a crash, at the next start (netplay_startup). Only folders this
+ * code made are ever listed. */
+void netplay_remove_guests(void)
+{
+    char root[1024], list[1100], line[128], dir[1300];
+    FILE *in;
+    if (!netplay_save_root(root, sizeof root)) return;
+    snprintf(list, sizeof list, "%s" PATH_SEP "netplay-guests.txt", root);
+    if (!(in = fopen(list, "r"))) return;
+    while (fgets(line, sizeof line, in)) {
+        line[strcspn(line, "\r\n")] = 0;
+        if (!plain_name(line)) continue;
+        snprintf(dir, sizeof dir, "%s" PATH_SEP "UserData" PATH_SEP "45410049" PATH_SEP "%s", root, line);
+        remove_folder(dir);
+        fprintf(stderr, "[NETPLAY] removed the session's guest profile %s\n", line);
+    }
+    fclose(in);
+    remove(list);
+    fflush(stderr);
+}
+
+static char s_user_dir[1100];           /* UserData/45410049 the match plays from */
+
+/* Where this game plays the match from: the player's own saves, with every created
+ * fighter's profile they do not have added for the session. A profile folder already
+ * there with other contents is a save of the player's own by the same name; then, so
+ * as to touch neither, this game plays from a session folder of its own instead
+ * (RECOMP_SAVE_DIR: the match's profiles and the player's own options). */
+static int place_saves(void)
+{
+    char root[1024], dir[1300], path[1400], list[1100];
+    int i, j, clash = 0, added = 0;
+    FILE *guests;
+    s_session_dir[0] = 0;
+    if (!netplay_save_root(root, sizeof root)) return 0;
+    netplay_remove_guests();
+    snprintf(s_user_dir, sizeof s_user_dir, "%s" PATH_SEP "UserData" PATH_SEP "45410049", root);
+    for (i = 0; i < s_file_count && !clash; i++) {
+        const SaveFile *f = &s_files[i];
+        snprintf(path, sizeof path, "%s" PATH_SEP "%s", s_user_dir, f->folder);
+        if (!dir_exists(path)) continue;
+        snprintf(path, sizeof path, "%s" PATH_SEP "%s" PATH_SEP "%s", s_user_dir, f->folder, f->name);
+        if (f->got == f->size && !same_file(path, f)) clash = 1;
+    }
+    if (clash) {
+        fprintf(stderr, "[NETPLAY] a profile of the match has the name of one of this player's own; "
+                        "playing from a session save folder\n");
+        fflush(stderr);
+        add_own_save("Options");
+        if (!write_session()) return 0;
+        snprintf(s_user_dir, sizeof s_user_dir, "%s" PATH_SEP "UserData" PATH_SEP "45410049", s_session_dir);
+        return 1;
+    }
+    snprintf(list, sizeof list, "%s" PATH_SEP "netplay-guests.txt", root);
+    for (i = 0; i < s_file_count; i++) {
+        const SaveFile *f = &s_files[i];
+        FILE *out;
+        int seen = 0;
+        if (f->got != f->size) continue;
+        snprintf(dir, sizeof dir, "%s" PATH_SEP "%s", s_user_dir, f->folder);
+        if (dir_exists(dir)) {
+            for (j = 0; j < i; j++) seen |= !strcmp(s_files[j].folder, f->folder);
+            if (!seen) continue;            /* the player's own (the same contents) */
+        } else {
+            make_dir(root);
+            snprintf(path, sizeof path, "%s" PATH_SEP "UserData", root);
+            make_dir(path);
+            make_dir(s_user_dir);
+            make_dir(dir);
+            if ((guests = fopen(list, "a")) != NULL) {
+                fprintf(guests, "%s\n", f->folder);
+                fclose(guests);
+            }
+            added++;
+            fprintf(stderr, "[NETPLAY] added %s's profile folder %s to this player's saves for the session\n",
+                    f->name, f->folder);
+        }
+        snprintf(path, sizeof path, "%s" PATH_SEP "%s", dir, f->name);
+        if (!(out = fopen(path, "wb"))) return 0;
+        if (fwrite(f->data, 1, f->size, out) != f->size) { fclose(out); return 0; }
+        fclose(out);
+    }
+    if (added) atexit(netplay_remove_guests);
+    fflush(stderr);
+    return 1;
+}
+
 static int by_folder(const void *a, const void *b)
 {
     return strcmp((const char *)a, (const char *)b);
 }
 
-/* The user number of `profile` in the session's saves: the game lists its profiles in
- * the order of their folders. -1 when it is not there. */
+/* The user number of `profile` among the saves the match plays from: the game lists its
+ * profiles (not the options) in the order of their folders. -1 when it is not there. */
 static int profile_user(const char *profile)
 {
-    char folders[MAX_FILES][64], mine[64] = "";
-    int n = 0, i, j, seen;
-    for (i = 0; i < s_file_count; i++) {
-        const SaveFile *f = &s_files[i];
-        if (!netplay_save_file(f->name) || !strcmp(f->name, "Options")) continue;
-        if (!strcmp(f->name, profile)) snprintf(mine, sizeof mine, "%s", f->folder);
-        for (seen = 0, j = 0; j < n; j++) seen |= !strcmp(folders[j], f->folder);
-        if (!seen) snprintf(folders[n++], 64, "%s", f->folder);
+    char folders[64][64], files[16][64], path[1300];
+    int n = netplay_list_dir(s_user_dir, 1, folders, 64), i, j, k, user = 0;
+    for (i = 0; i < n; i++) {
+        int is_profile = 0, mine = 0;
+        snprintf(path, sizeof path, "%s" PATH_SEP "%s", s_user_dir, folders[i]);
+        k = netplay_list_dir(path, 0, files, 16);
+        for (j = 0; j < k; j++) {
+            if (!netplay_save_file(files[j]) || !strcmp(files[j], "Options")) continue;
+            is_profile = 1;
+            mine |= !strcmp(files[j], profile);
+        }
+        if (mine) return user;
+        user += is_profile;
     }
-    qsort(folders, (size_t)n, sizeof folders[0], by_folder);
-    for (i = 0; i < n && mine[0]; i++)
-        if (!strcmp(folders[i], mine)) return i;
     return -1;
 }
 
@@ -1076,7 +1205,6 @@ static int host_agree(void)
             set_state(NETPLAY_FAILED, "Could not read your profile %s", m.profile[i]);
             return 0;
         }
-    add_own_save("Options");
     match_line(line, sizeof line, &m);
     send_all(-1, "%s", line);
     set_state(NETPLAY_HANDSHAKE, "Starting: gathering the created fighters");
@@ -1105,7 +1233,7 @@ static int host_agree(void)
             set_state(NETPLAY_FAILED, "%s left while the match was starting", s_lobby.name[p]);
             return 0;
         }
-    if (!write_session()) { set_state(NETPLAY_FAILED, "Could not write the session's saves"); return 0; }
+    if (!place_saves()) { set_state(NETPLAY_FAILED, "Could not put the match's profiles in place"); return 0; }
     set_state(NETPLAY_HANDSHAKE, "Starting: waiting for every player to agree");
     for (waiting = 0, p = 1; p < MAXP; p++) waiting |= (s_peer[p] != SOCK_BAD) << p;
     waited = 0;
@@ -1200,7 +1328,7 @@ static int join_session(void)
         if (got == 0 || file_line(0, line)) continue;
         if (!strcmp(line, "FILES")) break;
     }
-    if (!write_session()) { set_state(NETPLAY_FAILED, "Could not write the session's saves"); return 0; }
+    if (!place_saves()) { set_state(NETPLAY_FAILED, "Could not put the match's profiles in place"); return 0; }
     send_to(0, "READY");
     while ((got = recv_line(0, line, sizeof line, 200)) == 0)
         if (s_cancel) return 0;
@@ -1536,7 +1664,10 @@ int netplay_startup(void)
         const char *type = getenv("RECOMP_NETPLAY_TYPE"), *players = getenv("RECOMP_NETPLAY_PLAYERS");
         const char *name = getenv("RECOMP_NETPLAY_NAME"), *profile = getenv("RECOMP_NETPLAY_PROFILE");
         int f[MAXP] = {0, 0, 0, 0};
-        if (!(host && *host) && !(join && *join)) return 1;   /* no netplay asked for */
+        if (!(host && *host) && !(join && *join)) {
+            netplay_remove_guests();    /* a session's guests left by a crash */
+            return 1;                   /* no netplay asked for */
+        }
         default_lobby();
         if (name && *name) netplay_set_name(name);
         if (fighters) sscanf(fighters, "%d,%d,%d,%d", &f[0], &f[1], &f[2], &f[3]);
@@ -1553,10 +1684,27 @@ int netplay_startup(void)
     }
     if (!netplay_match(&m)) return 0;
     snprintf(text, sizeof text, "%u", m.seed);
+    /* Straight to the match: the intro is skipped (skip_intro.c asks netplay_quick_start),
+     * and from the title screen Start and A are pressed for the player every second --
+     * Start once the title takes it (about 7 s in), A for the memory-card notice -- until
+     * the main menu, where the match's commands take over. The player's own pad stays
+     * live (RECOMP_PAD_HOST). A test's own pad script is left as it is. */
+    if (!getenv("RECOMP_PAD_SCRIPT")) {
+        char script[1400];
+        size_t n = 0;
+        for (i = 0; i < 40 && n < sizeof script - 64; i++)
+            n += (size_t)snprintf(script + n, sizeof script - n, "%s%s:%d:%d.3", i ? "," : "",
+                                  i % 2 ? "a" : "start", 1 + i, 1 + i);
+        snprintf(script + n, sizeof script - n, ",@getscreeninfo(intmain/mainmenu");
+        put_env("RECOMP_SCRIPT_ANCHOR", "getscreeninfo(intmain/prestart");
+        put_env("RECOMP_PAD_SCRIPT", script);
+        put_env("RECOMP_PAD_SCRIPT_FORMAT", "seconds");     /* name:from:to, in seconds */
+        put_env("RECOMP_PAD_HOST", "1");
+    }
     put_env("RECOMP_LOCKSTEP", "1");
     put_env("RECOMP_LOCKSTEP_SEED", text);
-    /* Every game plays from the same saves (the session's): the profiles of the created
-     * fighters and the host's options. */
+    /* The player's own saves, with the match's profiles added (place_saves); a session
+     * folder only when a profile's name clashed with one of the player's. */
     if (s_session_dir[0]) put_env("RECOMP_SAVE_DIR", s_session_dir);
     {
         /* A created fighter's slot is set up as a player's, and a player's slot needs a
@@ -1865,6 +2013,11 @@ static void vote(int choice)
     send_all(-1, "VOTE %d %d %d", me, s_net_match, choice);
     fprintf(stderr, "[NETPLAY] this player chose %s after match %d\n", choice ? "rematch" : "quit", s_net_match);
     fflush(stderr);
+}
+
+int netplay_quick_start(void)
+{
+    return s_session_live;
 }
 
 int netplay_hold_call(const char *text)

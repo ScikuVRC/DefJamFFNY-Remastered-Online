@@ -35,9 +35,13 @@ void defjam_skip_intro_enter(void)
         return;
     selected = 1;
     /* Read the effective file/environment setting after the launcher. Subsequent
-     * overlay edits affect the next process, never an in-progress Story/movie. */
-    if (!recomp_settings_get("debug", "skip_intro", 0))
-        return;
+     * overlay edits affect the next process, never an in-progress Story/movie.
+     * An online match skips it whatever the setting (netplay_quick_start). */
+    {
+        extern int netplay_quick_start(void);
+        if (!recomp_settings_get("debug", "skip_intro", 0) && !netplay_quick_start())
+            return;
+    }
     if (MEM32(frontend + 0x9C) != 0) {
         fprintf(stderr, "[STARTUP] skip_intro: first screen was not legal1; leaving it unchanged\n");
         return;

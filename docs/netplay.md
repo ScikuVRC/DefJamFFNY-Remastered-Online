@@ -29,7 +29,12 @@ others), the others join with `host-address:port`.
    saves in their data folder). The host picks the CPU's fighters for free slots. A
    fighter (or a profile) can be in a match once. Each player ticks **Lock in my
    fighter**; when everyone has, the host presses **Start match**.
-3. Every launcher closes and every game goes straight into the match.
+3. Every launcher closes and every game goes straight into the match: the legal screen
+   and the startup movies are skipped whatever the skip-intro setting, and on the title
+   screen Start and A are pressed for the player every second (Start is taken about 7 s
+   in; A clears the memory-card notice) until the main menu, where the match's commands
+   start it at once. The player's own pad works throughout. (A test run's own pad
+   script, `RECOMP_PAD_SCRIPT`, is left as it is.)
 
 Start is held back during a netplay fight (pausing would stop one game only).
 
@@ -59,12 +64,23 @@ match 2 on both together, which stayed in sync to the same result.
 
 A created fighter is part of its profile's save, so the profile has to be on every
 game. When the host starts, a player with a created fighter sends that profile's save
-folder to the host, and the host sends every player the match's saves: every created
-fighter's profile and its own Options. Each game writes them to a save folder of the
-session's own, `<data>/save/netplay-session-<player>` (made afresh each match), and
-plays from it (`RECOMP_SAVE_DIR`), so every game lists the same users in the same
-order and nothing in a player's own saves changes. Progress made in a netplay match
-is not saved to the player's own profile.
+folder to the host, and the host sends every player every created fighter's profile.
+
+Each game plays from its player's **own saves**: their profiles, their options and
+unlocks, and whatever the game saves during and after the session (earnings, unlocks,
+the options) stays theirs. The other players' profiles are added to the player's save
+folder for the session (`place_saves`), listed in `<data>/save/netplay-guests.txt`, and
+taken out when the game closes, or at the next start after a crash. A profile the
+player already has with the same contents is used as it is; one with the same name and
+other contents is the player's own save, and then, so as to touch neither, that game
+plays the match from a session folder of its own (`<data>/save/netplay-session-<player>`,
+`RECOMP_SAVE_DIR`: the match's profiles and the player's own options).
+
+A slot's profile is a user number in the game's list, which follows the order of the
+save folders (checked with three profiles whose folder and name orders differ:
+2026-11-02), so each game finds the number in its own save folder. Different options
+and unlocks on each game do not part the fight: a pair whose joiner had every fighter
+and venue unlocked, and its own volume, stayed in sync to the same result.
 
 The front end sets a created fighter up in steps that take time, and the commands
 follow the user-ID and fighter screens as a player goes through them
@@ -187,8 +203,8 @@ Terrordome (`RECOMP_NETPLAY_VENUE=6`) started there on both and stayed in sync.
   its AI still running under the input).
 - TCP: a lost packet stalls both games until it is resent. UDP and rollback later.
 - Three- and four-player matches (Team Match, Free For All) and created fighters in
-  them are untested; so is a match with two different players' profiles (the user
-  numbers assume the game lists profiles in folder order).
+  them are untested over the network; so is a match with two different players'
+  created fighters (the game's profile order itself was checked).
 - Every player needs the same file mods (docs/mod-manager.md#file-mods).
 - The intermittent start-up stall (stuck at "press start": the USB host controller's
   first deferred routine ran seconds late and the driver gave up on the pad) is fixed
