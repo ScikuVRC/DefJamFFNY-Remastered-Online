@@ -82,7 +82,8 @@ style uses the game's charcoal, ivory, red and gold palette.
   [The developer menu](docs/developer-menu.md).
 - **Local saves.** Profiles, settings and generated texture packs live in your
   data folder, which setup preserves through updates and repairs. Profiles from an original
-  Xbox can be brought over; see [Importing Xbox saves](docs/importing-xbox-saves.md).
+  Xbox can be brought over (see [Importing Xbox saves](docs/importing-xbox-saves.md)), and so can
+  Story profiles from the PS2 game (see [Importing PS2 saves](docs/importing-ps2-saves.md)).
 
 ## Get started
 

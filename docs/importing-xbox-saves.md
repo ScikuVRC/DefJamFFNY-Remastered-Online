@@ -6,6 +6,8 @@ do not load by simply copying them into the save area: the game lists the profil
 it, and the port cannot reproduce that key. `scripts/save-import.py` copies the profiles and signs
 them again with the key the port uses, which is the only change it makes to the data.
 
+PS2 profiles are converted with another tool: see [importing-ps2-saves.md](importing-ps2-saves.md).
+
 Tested so far: one Story profile from a community-shared Xbox save, imported with this tool, loaded
 and reached the Story map with its unlocks (macOS, October 2026). Options files, other profiles
 and Windows have not been tried. Saves are the game's own data, so they are not published in this

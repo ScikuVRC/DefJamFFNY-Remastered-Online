@@ -12,6 +12,7 @@
 | [settings.ini and keybinds](settings-reference.md) | Every setting, the default keys and key names, with examples |
 | [HD textures](hd-textures.md) | Optional texture packs on Windows, macOS and Linux: generation, settings and fallback |
 | [Importing Xbox saves](importing-xbox-saves.md) | Bring profiles from an original Xbox, an emulator or shared save zips into the port |
+| [Importing PS2 saves](importing-ps2-saves.md) | Convert Story profiles from a PS2 memory card, a PCSX2 card or an Action Replay MAX save |
 | [Known issues](known-issues.md) | Current limitations and what has not been tested |
 
 ## Develop and test
