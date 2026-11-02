@@ -31,8 +31,29 @@ others), the others join with `host-address:port`.
    fighter**; when everyone has, the host presses **Start match**.
 3. Every launcher closes and every game goes straight into the match.
 
-Start is held back during a netplay fight (pausing would stop one game only). The
-menus after the match are each player's own; the session ends with the match.
+Start is held back during a netplay fight (pausing would stop one game only).
+
+## Rematch
+
+After the match each player goes through the summary to the game's **REMATCH? YES /
+NO** box. A rematch is a netplay match again, so it starts only when every player has
+chosen YES: whoever picks YES first sees "Rematch: waiting for the other players to
+choose it..." at the top of the picture, and the game holds its `Game.Rematch()` back
+(the FuncCall hook asks `netplay_hold_call`) and sends `VOTE <player> <match> 1`. When
+every player still in the session has voted YES, every game makes the call itself and
+the next match starts on all of them together (the start barrier is per match). If
+anyone picks NO (`Game.Quit()`, after the tip screen) or leaves, every game still
+waiting is sent to the menus with the same call, and the session ends. Steps on the
+wire carry their match (`match << 24 | step`), so a rematch never takes the last
+match's messages for its own.
+
+Before this (2026-11-01) a YES started the rematch on that game alone: the start
+barrier still held the last match's marks, and the game played on by itself after 10 s
+without the others' inputs.
+
+Tested (two games, one PC, harness routes `netplay-rematch` and `netplay-quit`): YES and
+NO sent the YES side back to the match-type menu without a match; YES and YES started
+match 2 on both together, which stayed in sync to the same result.
 
 ## Created fighters
 

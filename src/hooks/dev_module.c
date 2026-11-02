@@ -170,6 +170,10 @@ void dev_module_manager_enter(void)
 
     fe_inject_tick();
     defjam_lockstep_tick();
+    {
+        extern void netplay_tick(void);
+        netplay_tick();     /* a rematch held for the other players' votes (netplay.c) */
+    }
     if (s_mode < 0) read_env();
     if (!mgr || MEM32(mgr + MGR_STATE) != 0 || MEM32(mgr + MGR_PENDING) != 0) return;
     if (s_leave && MEM32(mgr + MGR_CURRENT) == s_object) {

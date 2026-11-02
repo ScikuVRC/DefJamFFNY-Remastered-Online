@@ -141,6 +141,14 @@ void netplay_step(void);
 void netplay_input(uint32_t actor);
 /* After the game's XInputGetState filled `state`: no Start (pause) in a netplay fight. */
 void netplay_filter_pad(uint32_t state);
+/* The FuncCall hook, before the front end's handler: 1 to hold the call back (a
+ * rematch waiting for the other players' votes). */
+int netplay_hold_call(const char *text);
+/* Once a game step (the run-module manager's tick): a held rematch starts, or turns
+ * into a quit, when every player has voted. */
+void netplay_tick(void);
+/* A line for the screen while something waits on the session, or NULL. */
+const char *netplay_banner(void);
 
 #ifdef __cplusplus
 }

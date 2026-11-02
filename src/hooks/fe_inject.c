@@ -137,6 +137,15 @@ void fe_inject_after_call(const char *text)
     }
 }
 
+/* One command now, from code of ours on the game thread (netplay's rematch). */
+void fe_inject_command(const char *command)
+{
+    fprintf(stderr, "[FE-INJECT] %s\n", command);
+    fflush(stderr);
+    recorder_event_text("fe_inject", "command", command);
+    dispatch(command);
+}
+
 void fe_inject_tick(void)
 {
     int i;

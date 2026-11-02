@@ -799,6 +799,16 @@ static void funccall_hook(void)
     recorder_event_text("fe", "text", text);
     xbox_NoteAnchorEvent(text);
     defjam_unlock_all_on_funccall(text);   /* RECOMP_UNLOCK_ALL, src/patches/dev_unlock.c */
+    /* Netplay holds a rematch back until every player has chosen it (netplay.c); the
+     * handler is a plain ret, so a held call pops its return address and gives 0. */
+    {
+        extern int netplay_hold_call(const char *text);
+        if (netplay_hold_call(text)) {
+            g_eax = 0;
+            g_esp += 4;
+            return;
+        }
+    }
     sub_00068BA0();
     /* RECOMP_FE_INJECT: commands of a test's own, after a chosen call (src/hooks/fe_inject.c). */
     fe_inject_after_call(text);

@@ -2232,7 +2232,11 @@ extern "C" void pc_ui_overlay(void *device, void *context, void *window_rtv, uns
     pad_mark_poll();
     if (!ui_capturing() && !g_chords.empty() && pad_toggle_pressed()) toggled = true;
     if (toggled) set_open(!g_open.load());
-    if (!g_open.load()) { ui_unlock(); return; }
+    // With the overlay closed, only a netplay notice is drawn (a rematch waiting on the
+    // other players, src/hooks/netplay.c).
+    const char *banner = netplay_banner();
+    bool open = g_open.load();
+    if (!open && !banner) { ui_unlock(); return; }
 
     ID3D11Device *dev = (ID3D11Device *)device;
     ID3D11DeviceContext *ctx = (ID3D11DeviceContext *)context;
@@ -2257,27 +2261,39 @@ extern "C" void pc_ui_overlay(void *device, void *context, void *window_rtv, uns
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    // Dim the game and put the settings in a panel in the middle.
     ImGuiIO &io = ImGui::GetIO();
-    if (g_just_opened) {
-        g_just_opened = false;
-        ImGui::SetNextWindowFocus();
-    }
-    ImDrawList *bg = ImGui::GetBackgroundDrawList();
-    bg->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(0, 0, 0, 150));
-    float pw = io.DisplaySize.x * 0.82f, ph = io.DisplaySize.y * 0.86f;
-    if (pw < 560) pw = io.DisplaySize.x;
-    if (ph < 420) ph = io.DisplaySize.y;
     bool close_request = false;
-    {
-        ImGui::SetNextWindowBgAlpha(0.96f);
-        UiResult r = ui_draw(UI_OVERLAY, (io.DisplaySize.x - pw) / 2, (io.DisplaySize.y - ph) / 2, pw, ph);
-        close_request = r.leave;
+    if (open) {
+        // Dim the game and put the settings in a panel in the middle.
+        if (g_just_opened) {
+            g_just_opened = false;
+            ImGui::SetNextWindowFocus();
+        }
+        ImDrawList *bg = ImGui::GetBackgroundDrawList();
+        bg->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(0, 0, 0, 150));
+        float pw = io.DisplaySize.x * 0.82f, ph = io.DisplaySize.y * 0.86f;
+        if (pw < 560) pw = io.DisplaySize.x;
+        if (ph < 420) ph = io.DisplaySize.y;
+        {
+            ImGui::SetNextWindowBgAlpha(0.96f);
+            UiResult r = ui_draw(UI_OVERLAY, (io.DisplaySize.x - pw) / 2, (io.DisplaySize.y - ph) / 2, pw, ph);
+            close_request = r.leave;
+        }
+        // Escape or the pad's cancel button closes the overlay, unless a popup or a capture is open.
+        if (!ui_capturing() && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) &&
+            (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)))
+            close_request = true;
+    } else if (banner) {
+        // A strip at the top of the picture that takes no input.
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.06f), ImGuiCond_Always,
+                                ImVec2(0.5f, 0.0f));
+        ImGui::SetNextWindowBgAlpha(0.8f);
+        ImGui::Begin("##netplay-banner", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
+                         ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoSavedSettings);
+        ImGui::TextUnformatted(banner);
+        ImGui::End();
     }
-    // Escape or the pad's cancel button closes the overlay, unless a popup or a capture is open.
-    if (!ui_capturing() && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) &&
-        (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)))
-        close_request = true;
 
     ImGui::Render();
     ID3D11RenderTargetView *old_rtv = nullptr;

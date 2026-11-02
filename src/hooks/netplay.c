@@ -25,7 +25,12 @@
  *   4. in the match: AT <player> <step> (the start barrier), IN <player> <step>
  *      <input> every step, SYNC <player> <step> <hash> (the desync check), and from
  *      the host GONE <player> <step> when a player has left: from that step on every
- *      game plays that player's slot with no input, so they all still agree.
+ *      game plays that player's slot with no input, so they all still agree. A step
+ *      on the wire carries its match too (match << 24 | step), so a rematch never
+ *      takes the last match's messages for its own;
+ *   5. after a match: VOTE <player> <match> <1 rematch | 0 quit>. A rematch waits
+ *      until every player has chosen it, and then starts on every game; one quit (or
+ *      a player gone) sends everyone who chose it back to the menus instead.
  *
  * Names travel as written, profile names in hex (they may have spaces); "-" is none.
  * Messages are text lines. The worker thread owns the sockets; the game and the
@@ -1209,20 +1214,30 @@ static int join_session(void)
 #define ENTRY_WORDS     6           /* what sub_001BAA00 reads of a pad-table entry */
 #define SYNC_EVERY      60          /* steps between desync checks */
 #define SYNC_KEEP       (RING / SYNC_EVERY + 1)
-static uint32_t s_inputs[MAXP][RING][ENTRY_WORDS];     /* per player */
-static long s_input_step[MAXP][RING];   /* which step each ring entry holds */
-static long s_last_in[MAXP];            /* the last step each player's input arrived for */
-static long s_at[MAXP];                 /* the highest step each player has reached */
-static long s_gone_from[MAXP];          /* from this step on the player has no input */
-static uint32_t s_sync_peer[MAXP][SYNC_KEEP], s_sync_mine[SYNC_KEEP];
-static long s_sync_peer_step[MAXP][SYNC_KEEP], s_sync_mine_step[SYNC_KEEP];
-static int s_host_lost;                 /* a joiner: the host's connection is gone */
+/* Steps as they travel and are kept: the match in the high bits, the step in the low
+ * 24 (some 77 hours of fight), so every match's steps are new. */
+typedef long long net_step;
+#define STEP_BITS       24
+#define NET_STEP(match, step) (((net_step)(match) << STEP_BITS) | (net_step)(step))
+#define STEP_OF(key)    ((long)((key) & ((1 << STEP_BITS) - 1)))
+#define NO_STEP         LLONG_MAX
 
-static void store_input(int p, long step, const uint32_t *w)
+static uint32_t s_inputs[MAXP][RING][ENTRY_WORDS];     /* per player */
+static net_step s_input_step[MAXP][RING];   /* which step each ring entry holds */
+static net_step s_last_in[MAXP];            /* the last step each player's input arrived for */
+static net_step s_at[MAXP];                 /* the highest step each player has reached */
+static net_step s_gone_from[MAXP];          /* from this step on the player has no input */
+static uint32_t s_sync_peer[MAXP][SYNC_KEEP], s_sync_mine[SYNC_KEEP];
+static net_step s_sync_peer_step[MAXP][SYNC_KEEP], s_sync_mine_step[SYNC_KEEP];
+static int s_host_lost;                 /* a joiner: the host's connection is gone */
+static int s_net_match;                 /* this process's netplay matches so far */
+static int s_vote[MAXP];                /* after match s_net_match: -1 none, 0 quit, 1 rematch */
+
+static void store_input(int p, net_step step, const uint32_t *w)
 {
     lock();
-    memcpy(s_inputs[p][step % RING], w, ENTRY_WORDS * sizeof *w);
-    s_input_step[p][step % RING] = step;
+    memcpy(s_inputs[p][STEP_OF(step) % RING], w, ENTRY_WORDS * sizeof *w);
+    s_input_step[p][STEP_OF(step) % RING] = step;
     if (step > s_last_in[p]) s_last_in[p] = step;
     unlock();
 }
@@ -1232,30 +1247,31 @@ static void store_input(int p, long step, const uint32_t *w)
  * connection, so every joiner reaches the same step with the same inputs. */
 static void host_gone(int p)
 {
-    long from;
+    net_step from;
     drop(p);
     lock();
     from = s_last_in[p] + 1;
-    if (s_gone_from[p] == LONG_MAX) s_gone_from[p] = from;
+    if (s_gone_from[p] == NO_STEP) s_gone_from[p] = from;
     unlock();
-    fprintf(stderr, "[NETPLAY] player %d left; their slot plays on without input from step %ld\n", p + 1, from);
+    fprintf(stderr, "[NETPLAY] player %d left; their slot plays on without input from step %ld\n", p + 1,
+            STEP_OF(from));
     fflush(stderr);
-    send_all(-1, "GONE %d %ld", p, from);
+    send_all(-1, "GONE %d %lld", p, from);
 }
 
 static void handle_game_line(int from, const char *line)
 {
-    long step;
-    int p;
+    net_step step;
+    int p, match, vote;
     uint32_t w[ENTRY_WORDS], hash;
-    if (sscanf(line, "IN %d %ld %x %x %x %x %x %x", &p, &step, &w[0], &w[1], &w[2], &w[3], &w[4], &w[5]) == 8
+    if (sscanf(line, "IN %d %lld %x %x %x %x %x %x", &p, &step, &w[0], &w[1], &w[2], &w[3], &w[4], &w[5]) == 8
         && p >= 0 && p < MAXP && step > 0) {
         if (s_hosting) {
             if (p != from) return;
             send_all(from, "%s", line);
         }
         store_input(p, step, w);
-    } else if (sscanf(line, "AT %d %ld", &p, &step) == 2 && p >= 0 && p < MAXP) {
+    } else if (sscanf(line, "AT %d %lld", &p, &step) == 2 && p >= 0 && p < MAXP) {
         if (s_hosting) {
             if (p != from) return;
             send_all(from, "%s", line);
@@ -1263,17 +1279,28 @@ static void handle_game_line(int from, const char *line)
         lock();
         if (step > s_at[p]) s_at[p] = step;
         unlock();
-    } else if (sscanf(line, "SYNC %d %ld %x", &p, &step, &hash) == 3 && p >= 0 && p < MAXP && step > 0) {
-        int i = (int)((step / SYNC_EVERY) % SYNC_KEEP);
+    } else if (sscanf(line, "SYNC %d %lld %x", &p, &step, &hash) == 3 && p >= 0 && p < MAXP && step > 0) {
+        int i = (int)((STEP_OF(step) / SYNC_EVERY) % SYNC_KEEP);
         lock();
         s_sync_peer[p][i] = hash;
         s_sync_peer_step[p][i] = step;
         unlock();
-    } else if (!s_hosting && sscanf(line, "GONE %d %ld", &p, &step) == 2 && p >= 0 && p < MAXP) {
+    } else if (!s_hosting && sscanf(line, "GONE %d %lld", &p, &step) == 2 && p >= 0 && p < MAXP) {
         lock();
-        if (s_gone_from[p] == LONG_MAX) s_gone_from[p] = step;
+        if (s_gone_from[p] == NO_STEP) s_gone_from[p] = step;
         unlock();
-        fprintf(stderr, "[NETPLAY] player %d left; their slot plays on without input from step %ld\n", p + 1, step);
+        fprintf(stderr, "[NETPLAY] player %d left; their slot plays on without input from step %ld\n", p + 1,
+                STEP_OF(step));
+        fflush(stderr);
+    } else if (sscanf(line, "VOTE %d %d %d", &p, &match, &vote) == 3 && p >= 0 && p < MAXP) {
+        if (s_hosting) {
+            if (p != from) return;
+            send_all(from, "%s", line);
+        }
+        lock();
+        if (match == s_net_match) s_vote[p] = vote != 0;
+        unlock();
+        fprintf(stderr, "[NETPLAY] player %d chose %s after match %d\n", p + 1, vote ? "rematch" : "quit", match);
         fflush(stderr);
     }
 }
@@ -1362,7 +1389,8 @@ static int start_session(void)
         s_in_len[p] = 0;
         s_at[p] = -1;
         s_last_in[p] = 0;
-        s_gone_from[p] = LONG_MAX;
+        s_gone_from[p] = NO_STEP;
+        s_vote[p] = -1;
         for (i = 0; i < RING; i++) s_input_step[p][i] = 0;
     }
     if (!start_thread()) {
@@ -1582,7 +1610,7 @@ static int local_player(void)
 
 /* Has every other player reached step `step` (AT) / sent its input for it (IN)? A
  * player who has left counts as there. */
-static int all_at(long step)
+static int all_at(net_step step)
 {
     int i, ok = 1, me = local_player();
     lock();
@@ -1595,14 +1623,14 @@ static int all_at(long step)
     return ok;
 }
 
-static int all_inputs(long step)
+static int all_inputs(net_step step)
 {
     int i, ok = 1, me = local_player();
     lock();
     for (i = 0; i < MAXP; i++) {
         int p = s_match.owner[i];
         if (p < 0 || p == me || s_gone_from[p] <= step) continue;
-        if (s_input_step[p][step % RING] != step) ok = 0;
+        if (s_input_step[p][STEP_OF(step) % RING] != step) ok = 0;
     }
     unlock();
     return ok;
@@ -1610,7 +1638,7 @@ static int all_inputs(long step)
 
 /* Wait (with the game paused) until every other player is there; 0 after `limit_ms`
  * or when the host is gone. */
-static int wait_for_all(int (*done)(long), long step, int limit_ms, int *waited)
+static int wait_for_all(int (*done)(net_step), net_step step, int limit_ms, int *waited)
 {
     *waited = 0;
     for (;;) {
@@ -1658,25 +1686,27 @@ static void desync_check(void)
     int prev = (int)(((s_step / SYNC_EVERY) + SYNC_KEEP - 1) % SYNC_KEEP);
     int p, me = local_player();
     uint32_t mine = fight_hash();
-    send_all(-1, "SYNC %d %ld %08x", me, s_step, mine);
+    send_all(-1, "SYNC %d %lld %08x", me, NET_STEP(s_net_match, s_step), mine);
     s_sync_mine[i] = mine;
-    s_sync_mine_step[i] = s_step;
+    s_sync_mine_step[i] = NET_STEP(s_net_match, s_step);
     if (s_desynced) return;
     for (p = 0; p < MAXP; p++) {
-        long peer_step;
+        net_step peer_step;
         uint32_t peer;
         if (p == me || (!s_hosting && p != 0) || slot_of(&s_match, p) < 0) continue;
         lock();
         peer_step = s_sync_peer_step[p][prev];
         peer = s_sync_peer[p][prev];
         unlock();
-        if (peer_step <= 0 || peer_step != s_step - SYNC_EVERY || s_sync_mine_step[prev] != peer_step) continue;
+        if (peer_step <= 0 || peer_step != NET_STEP(s_net_match, s_step - SYNC_EVERY)
+            || s_sync_mine_step[prev] != peer_step)
+            continue;
         if (peer != s_sync_mine[prev]) {
             s_desynced = 1;
             fprintf(stderr, "[NETPLAY] DESYNC: this game and player %d's differ at step %ld (%08x here, %08x there)\n",
-                    p + 1, peer_step, s_sync_mine[prev], peer);
-        } else if (peer_step % 600 == 0) {
-            fprintf(stderr, "[NETPLAY] in sync with player %d at step %ld\n", p + 1, peer_step);
+                    p + 1, STEP_OF(peer_step), s_sync_mine[prev], peer);
+        } else if (STEP_OF(peer_step) % 600 == 0) {
+            fprintf(stderr, "[NETPLAY] in sync with player %d at step %ld\n", p + 1, STEP_OF(peer_step));
         }
     }
     fflush(stderr);
@@ -1684,9 +1714,14 @@ static void desync_check(void)
 
 void netplay_match_start(void)
 {
+    int p;
     s_step = 0;
     s_current_step = 0;
     s_desynced = 0;
+    if (s_inited) lock();
+    s_net_match++;
+    for (p = 0; p < MAXP; p++) s_vote[p] = -1;
+    if (s_inited) unlock();
 }
 
 void netplay_step(void)
@@ -1704,10 +1739,10 @@ void netplay_step(void)
     if (s_step == 1) {
         /* Every game is at the first step of the same match; whichever got here first
          * waits for the others, so the fight starts on all of them together. */
-        send_all(-1, "AT %d 1", me);
-        fprintf(stderr, "[NETPLAY] at the first step; waiting for the other players\n");
+        send_all(-1, "AT %d %lld", me, NET_STEP(s_net_match, 1));
+        fprintf(stderr, "[NETPLAY] at the first step of match %d; waiting for the other players\n", s_net_match);
         fflush(stderr);
-        if (!wait_for_all(all_at, 1, BARRIER_MS, &waited)) {
+        if (!wait_for_all(all_at, NET_STEP(s_net_match, 1), BARRIER_MS, &waited)) {
             end_session(s_host_lost ? "the host disconnected" : "not every player arrived");
             return;
         }
@@ -1718,14 +1753,14 @@ void netplay_step(void)
 
     /* This step's local input is played `delay` steps from now, on every game. */
     local_input(s_step, mine);
-    store_input(me, s_step + s_delay, mine);
-    send_all(-1, "IN %d %ld %08x %08x %08x %08x %08x %08x", me, s_step + s_delay,
+    store_input(me, NET_STEP(s_net_match, s_step + s_delay), mine);
+    send_all(-1, "IN %d %lld %08x %08x %08x %08x %08x %08x", me, NET_STEP(s_net_match, s_step + s_delay),
              mine[0], mine[1], mine[2], mine[3], mine[4], mine[5]);
 
     /* The first `delay` steps have no inputs anywhere: every game plays them empty. */
     memset(s_current, 0, sizeof s_current);
     if (s_step > s_delay) {
-        if (!wait_for_all(all_inputs, s_step, STALL_MS, &waited)) {
+        if (!wait_for_all(all_inputs, NET_STEP(s_net_match, s_step), STALL_MS, &waited)) {
             end_session(s_host_lost ? "the host disconnected" : "a player stopped sending");
             return;
         }
@@ -1734,7 +1769,7 @@ void netplay_step(void)
         lock();
         for (slot = 0; slot < MAXP; slot++) {
             int p = s_match.owner[slot];
-            if (p >= 0 && s_gone_from[p] > s_step)
+            if (p >= 0 && s_gone_from[p] > NET_STEP(s_net_match, s_step))
                 memcpy(s_current[slot], s_inputs[p][s_step % RING], sizeof s_current[slot]);
         }
         unlock();
@@ -1777,4 +1812,105 @@ void netplay_input(uint32_t actor)
     if (slot >= (uint32_t)s_match.slots || s_match.owner[slot] < 0) return;
     for (i = 0; i < ENTRY_WORDS; i++)
         MEM32(PAD_TABLE + slot * 0x20u + i * 4) = s_current[slot][i];
+}
+
+/* ---- After a match: rematch or quit, together ------------------------------------
+ * Each player's menus after a match are their own, but a rematch is a netplay match
+ * again and needs every game. So in a session the front end's Game.Rematch() is held
+ * back (netplay_hold_call, from the FuncCall hook) and this game's vote sent; once
+ * every player still in the session has chosen it, every game makes the call itself
+ * (netplay_tick, on the game thread) and the new match starts on all of them. Whoever
+ * quits instead (Game.Quit()) leaves the session, and every game still waiting is sent
+ * to the menus with the same call. */
+static int s_rematch_waiting;           /* this game's Game.Rematch() is held */
+static char s_banner[96];
+static unsigned long long s_banner_until;
+
+static unsigned long long now_ms(void)
+{
+#if defined(_WIN32)
+    return GetTickCount64();
+#else
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (unsigned long long)t.tv_sec * 1000u + (unsigned long long)t.tv_nsec / 1000000u;
+#endif
+}
+
+static void banner(const char *text, unsigned ms)
+{
+    if (s_inited) lock();
+    snprintf(s_banner, sizeof s_banner, "%s", text);
+    s_banner_until = ms ? now_ms() + ms : ~0ull;
+    if (s_inited) unlock();
+}
+
+const char *netplay_banner(void)
+{
+    static char copy[96];
+    if (!s_banner[0]) return NULL;
+    if (s_inited) lock();
+    if (now_ms() > s_banner_until) s_banner[0] = 0;
+    snprintf(copy, sizeof copy, "%s", s_banner);
+    if (s_inited) unlock();
+    return copy[0] ? copy : NULL;
+}
+
+static void vote(int choice)
+{
+    int me = local_player();
+    lock();
+    s_vote[me] = choice;
+    unlock();
+    send_all(-1, "VOTE %d %d %d", me, s_net_match, choice);
+    fprintf(stderr, "[NETPLAY] this player chose %s after match %d\n", choice ? "rematch" : "quit", s_net_match);
+    fflush(stderr);
+}
+
+int netplay_hold_call(const char *text)
+{
+    if (!s_session_live || !s_net_match || !text) return 0;
+    if (strstr(text, "Game.Rematch()")) {
+        if (!s_rematch_waiting) vote(1);
+        s_rematch_waiting = 1;
+        banner("Rematch: waiting for the other players to choose it...", 0);
+        return 1;
+    }
+    if (strstr(text, "Game.Quit()")) {
+        vote(0);
+        s_session_live = 0;
+        s_rematch_waiting = 0;
+        banner("You left the online session.", 4000);
+        return 0;
+    }
+    return 0;
+}
+
+void netplay_tick(void)
+{
+    extern void fe_inject_command(const char *command);
+    int p, all = 1, declined = 0, me;
+    if (!s_rematch_waiting) return;
+    me = local_player();
+    lock();
+    for (p = 0; p < MAXP; p++) {
+        if (p == me || slot_of(&s_match, p) < 0) continue;
+        if (s_gone_from[p] != NO_STEP || (!s_hosting && s_host_lost) || s_vote[p] == 0) declined = 1;
+        else if (s_vote[p] != 1) all = 0;
+    }
+    unlock();
+    if (declined) {
+        s_rematch_waiting = 0;
+        s_session_live = 0;
+        fprintf(stderr, "[NETPLAY] a player quit or left: no rematch\n");
+        fflush(stderr);
+        banner("No rematch: another player quit. Back to the menu.", 5000);
+        fe_inject_command("Game.Quit()");
+    } else if (all) {
+        s_rematch_waiting = 0;
+        fprintf(stderr, "[NETPLAY] every player chose rematch: match %d starts\n", s_net_match + 1);
+        fflush(stderr);
+        banner("Rematch!", 2000);
+        fe_inject_command("Game.Rematch()");
+    }
 }
