@@ -23,7 +23,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-REPO = 'vyanhursky/DefJamFFNY-recomp'
+REPO = 'ScikuVRC/DefJamFFNY-recomp'
 API = 'https://api.github.com/repos/' + REPO + '/releases'
 EXTENSIONS = {'windows-x64': '.exe', 'macos-arm64': '.dmg', 'linux-x64': '.tar.gz'}
 CONTRACT = {'protocol': 1, 'data_schema': 1}
