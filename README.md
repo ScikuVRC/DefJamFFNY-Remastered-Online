@@ -81,8 +81,6 @@ How it works, and what is not done yet: [Online play](docs/netplay.md).
 
 ## Known limits
 
-- Now and then a start hangs on a white window; close it and start again. The cause is
-  known and being fixed.
 - Online play uses TCP: a lost packet stalls both games until it is resent.
 - More: [Known issues](docs/known-issues.md).
 
