@@ -12,7 +12,8 @@
  * RECOMP_FILE_PACKS), semicolon-separated, are asked first; the last pack that has
  * the file wins, as with texture packs. Nothing is copied or changed in the game dir.
  * A replacement has to be in the format the game reads: the same container and codec
- * as the file it replaces.
+ * as the file it replaces. A file no pack has goes on to the redirect that was there
+ * before (a language pack's, pc_language.c), so a file pack wins over a language pack.
  *
  * Every pack in a netplay match must be the same on every game; a pack that changes
  * the fight (models, game data) makes the games part.
@@ -34,6 +35,7 @@
 
 static char s_root[MAX_PACKS][1024];        /* <data>/mods/<pack>/files, last listed first */
 static int s_count;
+static BOOL (*s_next)(const char *relative, xbox_host_char *host_path, DWORD size);
 
 static int exists(const char *path, xbox_host_char *out, DWORD size)
 {
@@ -53,7 +55,8 @@ static BOOL replace(const char *relative, xbox_host_char *host_path, DWORD size)
 {
     char path[2048], *p;
     int i;
-    if (!relative || !*relative || strstr(relative, "..")) return FALSE;
+    if (!relative || !*relative || strstr(relative, ".."))
+        return s_next ? s_next(relative, host_path, size) : FALSE;
     for (i = 0; i < s_count; i++) {
         snprintf(path, sizeof path, "%s/%s", s_root[i], relative);
         for (p = path; *p; p++)
@@ -67,7 +70,7 @@ static BOOL replace(const char *relative, xbox_host_char *host_path, DWORD size)
             return TRUE;
         }
     }
-    return FALSE;
+    return s_next ? s_next(relative, host_path, size) : FALSE;
 }
 
 void defjam_file_mods_init(void)
@@ -93,7 +96,8 @@ void defjam_file_mods_init(void)
     for (i = 0; i < n; i++) snprintf(s_root[i], sizeof s_root[i], "%s", found[n - 1 - i]);
     s_count = n;
     if (n) {
-        g_xbox_game_file_hook = replace;
+        s_next = g_xbox_game_file_redirect;     /* set up first: pc_settings.c starts this after the language */
+        g_xbox_game_file_redirect = replace;
         fprintf(stderr, "[MODS] %d file pack(s): %s\n", n, packs);
     }
 }

@@ -212,7 +212,13 @@ Terrordome (`RECOMP_NETPLAY_VENUE=6`) started there on both and stayed in sync.
   3.1 s in about one start in fifteen; it now only prefers that core. 0 stalls in 65
   starts against 4 in 55. The fix is commit `6cc6238` on the toolkit branch
   `defjam/timer-ideal-core` of the fork `ScikuVRC/xboxrecomp`, which `tools/xboxrecomp`
-  now follows; the same branch carries the file-mod hook (`103fd8b`). Two games starting
-  at once on one PC still stalled now and then (about one pair start in four).
+  now follows (merged with upstream's toolkit at `d569ca1`; file mods use upstream's
+  `g_xbox_game_file_redirect`). Two games starting
+  at once on one PC still stalled now and then (about one pair start in four), and more
+  often since the v0.13.0 merge: 3 of 4 pair starts (the host each time) hung before the
+  first frame, with the timer thread not run for minutes and the USB and graphics DPCs
+  queued. One game alone started 14 of 14 times, and the pair that started played
+  11,655 steps with fighters, pads and generators the same on both (only the background
+  crowd differs, as it did before the merge: docs/research/crowd-nondeterminism.md).
 - A rare wild indirect call in the controller library at boot (`0x27EC6E`, once in 69
   runs), skipped without harm.
