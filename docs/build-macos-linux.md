@@ -12,7 +12,7 @@ same pipeline off Windows, since v0.5.0.
 |---|---|
 | macOS on Apple Silicon (arm64) | Playable. Built, regression-tested and play-tested on macOS 26 with a DualSense. |
 | macOS on Intel | Not tried. |
-| Linux x86-64 | Builds and runs natively (D95). Built with Clang 20 and run on a Steam Deck; 12 of the 14 regression checks pass on the Deck; combat and versus fail only on a few audio-queue underruns ([#11](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/11)). Play-tested by the owner on the Deck. |
+| Linux x86-64 | Builds and runs natively (D95). Built with Clang 20 and run on a Steam Deck; 12 of the 14 regression checks pass on the Deck; combat and versus fail only on a few audio-queue underruns (#11). Play-tested by the owner on the Deck. |
 | Steam Deck | Native, through Vulkan on the Deck's GPU, with PipeWire sound and the Deck's own controls as a pad. SteamOS has no compiler: build in a container (below) and run the game on SteamOS itself. Proton not tried. |
 
 What is different from Windows:
@@ -32,7 +32,7 @@ copies cannot be used.
 ## Get the source
 
 ```bash
-git clone --recursive https://github.com/vyanhursky/DefJamFFNY-recomp.git
+git clone --recursive 
 cd DefJamFFNY-recomp
 ```
 

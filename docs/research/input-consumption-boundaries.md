@@ -2,7 +2,7 @@
 
 Runtime qualification: Battle calibration reached all 12 gameplay controls but emitted no events around the `sub_0002D9E0` candidate. Bounded source search identifies equivalent producers `sub_00079280` and `sub_00079FA0`, each writing through destination `0x003BDE84` and then feeding the match update. `sub_00079B60` calls `sub_00079280` at `0x00079C8D`, followed by `sub_0008BE60` at `0x00079C98`; `sub_0007A8F0` calls `sub_00079FA0` at `0x0007AA18`, followed by `sub_0008BE60` at `0x0007AA23`. The final tracing candidate brackets all three and records the writer VA. Static source identifies candidates; observed events identify the path used by a particular run. Earlier references below to “the human producer” describe a statically valid equivalent path, not proof that D9E0 executes in Battle.
 
-Read-only source audit of the guest XDK query, the controller-to-player port mapping, and the later fighter pad-table copy. The executable disassembly is from the user's local analysis package at `C:\Users\Vlad\code\defjam\analysis\tools_disasm_output\output\asm\{XPP,text}.asm`; lifted C is gitignored and was not used. Addresses below are guest virtual addresses.
+Read-only source audit of the guest XDK query, the controller-to-player port mapping, and the later fighter pad-table copy. The executable disassembly is from the user's local analysis package at `C:\Users\the owner\code\defjam\analysis\tools_disasm_output\output\asm\{XPP,text}.asm`; lifted C is gitignored and was not used. Addresses below are guest virtual addresses.
 
 ## What a successful guest read identifies
 

@@ -191,7 +191,7 @@ source fixes or replacing the CI artifact requires a subsequent owner request.
 
 ### Publication follow-up
 
-Vlad subsequently authorized pushing the verified fixes and report. They are
+The owner subsequently authorized pushing the verified fixes and report. They are
 delivered through the existing PR91 branch `codex/integrated-menu-mods-rc`;
 PR91 remains draft and the inherited transition gate remains open. This does
 not merge, tag or release the candidate. The already installed playtest build

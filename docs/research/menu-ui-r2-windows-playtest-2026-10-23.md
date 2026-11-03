@@ -2,7 +2,7 @@
 
 ## Scope and authorization
 
-Vlad supplied bucket `defjam-ffny-mods` and public development origin
+The owner supplied bucket `defjam-ffny-mods` and public development origin
 `https://pub-9167b11f83f24f2a9e21af7f0e225057.r2.dev`, then explicitly requested
 uploading the separate texture pack so he can test Windows. This authorizes the
 exact RC2 artwork upload to that bucket, not a stable catalogue release or an
@@ -13,7 +13,7 @@ expanded,157texture mappings,62wide entries; all ZIP CRCs pass. SHA256:
 `43bbb22cd14197091143623551f350a0b7ff622f0efccb1da058f491e7157634`.
 
 Cloudflare's dashboard is signed in and confirms this bucket, Standard storage
-and public access. Its browser uploader explicitly limits files to300MB. Vlad
+and public access. Its browser uploader explicitly limits files to300MB. The owner
 configured a bucket-scoped R2 S3 credential locally under AWS profile `defjam-r2`;
 no credential values were printed, committed or sent in chat. A head-bucket probe
 succeeds. Upload uses the existing AWS CLI and the R2 S3 endpoint. The private
@@ -42,12 +42,12 @@ Checked the current public release **v0.10.7** on2026-10-23. Its toolkit pin is
 widescreen support for this pack. This is independent of hosting/download success.
 
 Use a game built from the tested menu branch
-[PR62](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/62), whose toolkit is
+PR62, whose toolkit is
 `dd63e17f0bd0a23f5a5b7218ee1c3bbb2ced994d`, or another build retaining that wide
 loader. Build from the player's own supported dump; no game executable is shipped.
-[PR73](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/73) remains open and fixes
+PR73 remains open and fixes
 long pack-list handling separately. Neither the texture upload nor
-[catalogue-helper PR82](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/82)
+catalogue-helper PR82
 automatically integrates the wide loader into the released game.
 
 Extract the pack so `<data>/mods/menu-ui-hd-wide-v1-rc2/manifest.ini` exists.
@@ -84,7 +84,7 @@ range resume; it is not a native Windows/visual test.
 ## Compatible Windows setup reference and guide correction
 
 The existing successful CI run39447027154 retains an unexpired
-[windows-setup-assets artifact](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/39447027154/artifacts/12277037576).
+windows-setup-assets artifact.
 Downloaded artifact SHA256 matches GitHub's digest:
 `9e86316376a9c8a0d3051ba33e4e8bcb5a3e9eaf66207bf25b9ce384431f168d`.
 Its `DefJamSetup-0.10.5-windows-x64.exe` independently matches the checksum and

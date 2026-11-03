@@ -4,10 +4,10 @@ This is a read-only source/archive audit for the UI restoration planning session
 
 ## Evidence and source identity
 
-- Parent checkout: `/Users/vlad/.codex/worktrees/01c5/DefJamFFNY-recomp`. Read `AGENTS.md`, `PROGRESS.md`, `src/patches/widescreen.{c,h}`, settings/capture/harness code, and the previous `docs/widescreen/` and research reports.
+- Parent checkout: `/Users/<you>/.codex/worktrees/01c5/DefJamFFNY-recomp`. Read `AGENTS.md`, `PROGRESS.md`, `src/patches/widescreen.{c,h}`, settings/capture/harness code, and the previous `docs/widescreen/` and research reports.
 - Its `tools/xboxrecomp` directory is uninitialized. The parent gitlink is `4a6c88e841dd74d3c279f15b8f8e50110b0df70d`.
-- The **exact pinned toolkit commit**, with a clean working tree, is available locally at `/Users/vlad/Code/xboxrecomp-audio-fix`. Renderer and pack-loader conclusions below were checked there. The older `/Users/vlad/Code/DefJamFFNY-recomp/tools/xboxrecomp` is at `837e2c7`; it was useful for initial exploration but does not supersede the exact-pin evidence.
-- Local dump: `/Users/vlad/Code/defjam-data/extracted/screens/{screens.viv,feflow.xml}`. Used the repository's APT and RefPack parsers in memory to inspect `prestart.big`, `demoStrt.big` and `mainMenu.big`; no extraction was written.
+- The **exact pinned toolkit commit**, with a clean working tree, is available locally at `/Users/<you>/Code/xboxrecomp-audio-fix`. Renderer and pack-loader conclusions below were checked there. The older `/Users/<you>/Code/DefJamFFNY-recomp/tools/xboxrecomp` is at `837e2c7`; it was useful for initial exploration but does not supersede the exact-pin evidence.
+- Local dump: `/Users/<you>/Code/defjam-data/extracted/screens/{screens.viv,feflow.xml}`. Used the repository's APT and RefPack parsers in memory to inspect `prestart.big`, `demoStrt.big` and `mainMenu.big`; no extraction was written.
 
 ## What exists today
 

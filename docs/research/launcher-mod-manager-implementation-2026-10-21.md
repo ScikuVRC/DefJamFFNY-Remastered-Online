@@ -4,18 +4,18 @@ For current combined RC status, see the [integrated launcher/menu acceptance
 record](integrated-menu-launcher-rc-2026-10-23.md). This dated design and implementation
 snapshot preserves the earlier decisions and validation context.
 
-2026-10-21. Design follow-up to [PR17](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/17),
+2026-10-21. Design follow-up to PR17,
 head `8e3d2dbe8f8debbc76d1e317307e3c23f77ba2e3`. This is an implementation plan;
 the download manager and catalogue are not yet shipped features.
 
 ## Owner decisions
 
-Vlad requests three connected launcher surfaces: local filesystem mods, approved project downloads,
+The owner requests three connected launcher surfaces: local filesystem mods, approved project downloads,
 and a load-order sub-window covering both. The HD/Widescreen Menus pack is a separate product;
 it must override conflicting Faithful HD textures when placed later. Faithful remains independently
 generated from the player's dump. Catalogue updates and mod updates are user-controlled.
 
-Vlad confirmed one new public `vyanhursky/DefJamFFNY-mods` repository, signed **JSON** as in PR17,
+The owner confirmed one new public `the mod catalogue repository` repository, signed **JSON** as in PR17,
 and keeping the helper in the game repository initially. Catalogue publishing uses GitHub Actions
 with a protected environment requiring his approval. He accepts Cloudflare R2 and modest costs,
 but has no account/domain yet and requests recommendations. No domain purchase is needed to begin.
@@ -106,7 +106,7 @@ already installed mods, but must not authorize fresh installs. Offline play stay
 
 Publishing jobs must not expose signing/upload credentials to untrusted PR code. Validate PRs with
 synthetic fixtures and read-only permissions. After review, rebuild the exact approved main commit in
-a protected environment requiring Vlad; sign and deploy the verified output. Keep key material out of
+a protected environment requiring the owner; sign and deploy the verified output. Keep key material out of
 source, artifacts and logs. A repository-controlled signing workflow still needs protection: signed
 metadata is not a substitute for reviewing workflow changes and protecting release credentials.
 
@@ -135,7 +135,7 @@ the settings order.
 
 ## Hosting recommendation
 
-Create a Cloudflare account owned by Vlad with MFA. Use R2 **Standard** storage and a dedicated bucket.
+Create a Cloudflare account owned by the owner with MFA. Use R2 **Standard** storage and a dedicated bucket.
 Initially use its development URL for integration tests. Before public release use a custom subdomain,
 for example `downloads.<chosen-project-domain>`; catalogue stays on GitHub Pages. If there is no existing
 project domain, choose a durable project-wide name and use subdomains rather than buying one per mod.
@@ -167,7 +167,7 @@ ZIPs versus revocable metadata. Confirm budget notifications before publishing.
 3. **Launcher integration:** retain the latest launcher design; split local/catalogue surfaces and add
    shared Load Order window, helper lifecycle/progress, update badges and offline behavior. Bundle
    pinned verification dependencies in all Setup platforms; explicitly test old-install fallback.
-4. **Hosted end-to-end:** create R2 when Vlad's account/domain is ready, upload a synthetic package,
+4. **Hosted end-to-end:** create R2 when the owner's account/domain is ready, upload a synthetic package,
    prove range resume/hash failure/rollback and review-approved catalogue publication. Then exercise
    the actual separate menu ZIP in an isolated data/save root with Faithful on and off.
 5. **Release acceptance:** native mouse/keyboard/gamepad checks, narrow-window/large-text layout,
@@ -195,13 +195,13 @@ approve pending artwork derivatives.
 
 ## Foundation delivered in this session
 
-Created [vyanhursky/DefJamFFNY-mods](https://github.com/vyanhursky/DefJamFFNY-mods), initial source
+Created the mod catalogue repository, initial source
 commit `adf8099`. The repository contains the draft texture metadata contract, strict standard-library
 validator, deterministic unsigned preview builder, contribution rules, MIT source licence, and
 read-only PR/push validation. Seven tests (including eighteen invalid-metadata cases) and Actions run
 `39612826714` pass. The real catalogue is empty; synthetic URLs/hashes appear only in tests.
 
-Created GitHub environment `catalogue-release` with required reviewer `vyanhursky` and a deployment
+Created GitHub environment `catalogue-release` with required reviewer `the maintainer` and a deployment
 branch policy allowing `main` only. Owner-triggered deployments can be approved by that owner; there
 is currently no publishing workflow to consume the environment. No signing key, Pages deployment,
 Cloudflare resource, downloaded artwork or launcher/helper implementation was created. This foundation
@@ -215,11 +215,11 @@ worktree; do not replace the redesigned launcher with this art branch's older UI
 
 ## Implementation delivered — 2026-10-21
 
-The current-main implementation is in [draft game PR82](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/82)
+The current-main implementation is in draft game PR82
 (source eb6c65e), preserving this older menu branch's artwork and review work.
 Read the PR's validation report for569passing units, three native synthetic tours
 repeated twice, full15/18 and fresh launcher/intro2/2. Catalogue protected signing
-is [PR1](https://github.com/vyanhursky/DefJamFFNY-mods/pull/1),3597c0e. Owner explicitly
+is PR1,3597c0e. Owner explicitly
 approved key generation/private backup/protected-secret provisioning; complete.
 No live Pages catalogue or public art hosting has been published.
 

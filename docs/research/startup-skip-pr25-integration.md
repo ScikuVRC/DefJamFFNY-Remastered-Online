@@ -2,7 +2,7 @@
 
 2026-10-17. Read-only comparison of main `9c1730917bb1ea080db1cbae2e012fa4ce184b66`
 and PR #25 head `0bb115fab155de0420db1af696f8857a14703d0f`, inspected in
-`/Users/vlad/Code/DefJamFFNY-recomp-publish`. The finalized startup feature in
+`/Users/<you>/Code/DefJamFFNY-recomp-publish`. The finalized startup feature in
 the coordinating root checkout was also read. No build, game run, checkout
 edit, commit, push or external message was performed by this research task.
 The new report is written only in the coordinating checkout.
@@ -249,7 +249,7 @@ Scope: local macOS26.5.2 arm64, Clang21/MoltenVK. Windows and Deck have not been
 tested by this session. PR25 remains open at exact head0bb115f as of16:41 on
 2026-10-17; no remote merge or push occurred. The tested combined toolkit5445b73
 remains unpublished, so the parent gitlink still names published9051be9 until
-Vlad authorizes toolkit publication.
+The owner authorizes toolkit publication.
 
 ### Final affected checks and audio retry
 
@@ -272,10 +272,10 @@ are finished, and source hygiene is checked before the final source commit.
 
 ## Publication and v0.10.1 preparation (D128)
 
-On2026-10-17 Vlad authorized pushing the integration and opening the PRs, naming
+On2026-10-17 the owner authorized pushing the integration and opening the PRs, naming
 v0.10.1 for the startup option and more time-efficient regression sets. Toolkit
 `5445b730d08348c20fc029cd728bb24a4a85c8e0` is now published and its remote SHA
-verified. [Fork PR1](https://github.com/vyanhursky/xboxrecomp/pull/1) targets
+verified. [Fork PR1](https://github.com/ScikuVRC/xboxrecomp/pull/1) targets
 `defjam/audio-fix`, preserving the tested tree. No upstream PR is opened.
 The parent may now pin that published commit. Version0.10.1 and its release
 notes are prepared separately from PR25’s pending merge/release.
@@ -291,7 +291,7 @@ claimed. The unchanged retry (`run-20261017-201656.log.err`) reaches preStart in
 failure is retained rather than filtered. No game/runtime code changed in the
 release preparation.
 
-[Game PR39](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/39) is now pushed
+Game PR39 is now pushed
 and opened as a draft stacked on PR25’s `feature/clever-feynman-4ovoyk` branch.
 It contains the published toolkit pin, version0.10.1, release notes and the
 feature/test changes. Both PRs are attached to this task. PR25 was still open
@@ -361,7 +361,7 @@ The updated startup audit passes: quick4launches=3fast/1normal, full20=19fast/
 1normal, zero unknowns and exactly one redirect in each fast launch. Evidence:
 `logs/startup-skip/pr25-updated-{quick,full}-startup-audit.json`.
 
-Vlad explicitly authorizes merging and releasing0.10.1 (D132). Toolkit forkPR1
+The owner explicitly authorizes merging and releasing0.10.1 (D132). Toolkit forkPR1
 is merged with merge commit `a37e19edf07473fd8e963209a28a2cdd3e142598`; verified
 5445b73 remains its ancestor and the game gitlink stays unchanged/clean. Main's
 subsequent PR41 only records publication of0.10.0; preserve that metadata while
@@ -386,7 +386,7 @@ counts are4186Windows,4907macOS,3234Linux. Local verification evidence:
 source, logs, captures or dump data is attached.
 
 Published2026-10-17 22:25:58 ET and verified through the latest-release API:
-[v0.10.1](https://github.com/vyanhursky/DefJamFFNY-recomp/releases/tag/v0.10.1).
+v0.10.1.
 The release notes retain the strict15/17 full outcome and its known audio limits.
 Merged game branch is pruned/deleted locally after switching to main; the toolkit
 integration branch remains checked out in its isolated worktree and is retained.

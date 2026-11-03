@@ -7,7 +7,7 @@ screens were captured on October 20, 2026; gameplay and the historical overlay w
 on an Apple M1 Pro running macOS 26.5.2, using Vulkan/MoltenVK. Gameplay uses
 render scale 2, the game brightness curve and locally generated faithful HD
 packs where labelled. Widescreen beta shipped in
-[v0.9.0](https://github.com/vyanhursky/DefJamFFNY-recomp/releases/tag/v0.9.0)
+v0.9.0
 on Windows, macOS and Linux/Steam Deck. These images do not demonstrate Deck
 Gaming Mode or Windows-specific rendering.
 

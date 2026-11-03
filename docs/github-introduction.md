@@ -34,7 +34,7 @@ put additional examples in the [media index](media/README.md) or feature guides.
 | Setting names and defaults | [Settings reference](settings-reference.md) | Feature benefit and link |
 | Texture formats and load order | [HD textures](hd-textures.md) | Released capability and link |
 | User-visible limits | [Known issues](known-issues.md) | Material limits and link |
-| Version changes and measurements | [Release notes](releases) and [GitHub releases](https://github.com/vyanhursky/DefJamFFNY-recomp/releases) | Latest-release link |
+| Version changes and measurements | [Release notes](releases) and GitHub releases | Latest-release link |
 | Future work | Linked issues/PRs and plans | Released, beta, proposed or stretch stage |
 | Capture provenance | [Media index](media/README.md) | Platform and texture context in captions |
 

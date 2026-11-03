@@ -5,7 +5,7 @@ Choose Teams and Choose Venue. These are recorded in PR91 for the owner to tackl
 in HD Widescreen Menus1.1. The repeated pause-menu close-ups are HUD evidence,
 not additional artwork scope. No artwork was generated or uploaded.
 
-[Issue95](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/95) records the
+Issue95 records the
 owner-reported widescreen pause bug: the fighter bars, names and scores move to
 centered4:3positions during pause. It includes the four-player Foundation example,
 reproduction, expected behavior and candidate provenance. It is logged, not fixed;
@@ -67,8 +67,8 @@ above..." sentence; only the generic next-game-start notice remains. The preview
 was rebuilt successfully. Automated computer-use acceptance remains distinct
 from this owner visual approval; large-text and cross-platform checks remain.
 
-Author credit is corrected in the authoritative catalogue source from `Vlad` to
-`vyanhursky` on `fix/menu-author-github-name`, commit`c8940e2`. Source validation
+Author credit is corrected in the authoritative catalogue source from `the owner` to
+`the maintainer` on `fix/menu-author-github-name`, commit`c8940e2`. Source validation
 and13applicable tests/22subtests pass; the symlink test remains inapplicable on
 this Windows machine without the required privilege. The live signed catalogue
 still contains the old credit until the metadata PR is merged and a new signed

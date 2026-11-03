@@ -57,10 +57,10 @@ well - see `src/recomp_manual.c`.
    added there, not worked around elsewhere; the sampler will name the function and the lifted body will
    name the register.
 3. **Toolkit changes are fork commits.** `tools/xboxrecomp` is pinned to a published commit on
-   `vyanhursky/xboxrecomp`, branch `defjam/rebase-2026-10`. Build that checkout directly. Make generic
+   `ScikuVRC/xboxrecomp`, branch `defjam/rebase-2026-10`. Build that checkout directly. Make generic
    changes in an isolated toolkit worktree, validate and publish, then commit the published gitlink in
    the parent. The 108 numbered patches that source comments still cite are retired and no longer shipped. The ledger in
-   `docs/research/toolkit-rebase-ledger.md` maps all 108 old patches. Each upstream PR needs Vlad's approval.
+   `docs/research/toolkit-rebase-ledger.md` maps all 108 old patches. Each upstream PR needs the owner's approval.
 4. **Deferred structural work is in `docs/04-improvement-backlog.md`**, not in PROGRESS.md.
 5. **Captures come from the back buffer** (`RECOMP_TRANS_SHOT`, D12, D15) and carry the gamma ramp;
    `scripts/window-shot.ps1` grabs the game's own window when what is presented is the question. Both are

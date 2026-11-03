@@ -1,6 +1,6 @@
 # Setup updater implementation: initial test results
 
-Candidate: draft [PR #18](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/18),
+Candidate: draft PR #18,
 `codex/setup-github-updates`, based on v0.7.2 `ce4d4ab`; development payload made
 from implementation commit `f238afe` (development mode). Earlier evidence used
 the dirty feature checkout at base commit `700e6c9`. Toolkit remains
@@ -53,11 +53,11 @@ toolkit and payload-manifest SHA-256: `native-final-head.json`; output
 actual v0.7.2 Mac artifact (`live-checksum-smoke.log`). Obsolete synthetic build
 folders were pruned for disk headroom; their reports remain retained.
 
-[Corrected CI run ae2c890](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/38305557205)
+Corrected CI run ae2c890
 passed all three setup lanes and the workflow. It includes the Windows startup-gate,
 native job cleanup, raw ZIP and writable file-flush fixes. The checksum and two
 extra selected-handoff cases are in final code `f238afe`; its hosted run is
-[38306033576](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/38306033576).
+38306033576.
 **Initial implementation CI: 25/25 jobs PASS**, including Windows/macOS/Linux setup lanes
 and the ten-case native Mac fixture. JUnit and native game-free JSON/log artifacts
 are retained even on failure. This evidence-only follow-up changes no tested code.
@@ -98,7 +98,7 @@ logs are local: `logs/setup-updates/2026-10-12-mac-ui/interactive-results.json`
 session UUID logs. Scratch test apps are under `/private/tmp/dju-ui-retry/`.
 No screenshots, binaries or game data are committed.
 
-Final interactive fixes in `e93705c` passed [all 25 hosted CI jobs](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/38314016983), including all three setup lanes. The rebuilt development package passed its game-free inventory (4867 files; 64058282-byte payload ZIP), bundled runtime imports and both packaged UI/preparation smokes. Its live picker was rechecked: 17 releases, 12 unavailable Mac entries disabled, responsive controls and idle Close. Local units remain **339 passed / 30 skipped**. `packaged-smoke.json` and `build.log` retain this final-package evidence.
+Final interactive fixes in `e93705c` passed all 25 hosted CI jobs, including all three setup lanes. The rebuilt development package passed its game-free inventory (4867 files; 64058282-byte payload ZIP), bundled runtime imports and both packaged UI/preparation smokes. Its live picker was rechecked: 17 releases, 12 unavailable Mac entries disabled, responsive controls and idle Close. Local units remain **339 passed / 30 skipped**. `packaged-smoke.json` and `build.log` retain this final-package evidence.
 
 ## Pending acceptance and caveats
 

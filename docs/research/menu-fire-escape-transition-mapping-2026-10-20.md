@@ -72,12 +72,12 @@ no transition art generated, and no wide registration added in this pass.
 
 ## Later authoring correction and continuation
 
-Vlad answered: leave the launcher-redesign game running and continue textures.
+The owner answered: leave the launcher-redesign game running and continue textures.
 A full ten-tile audit found bitmap9/part1's decoded quad atx512..1024,y512..1024
 despite texture translation0,0. The existing baseline trace confirms that
 placement below the viewport; its cause/visibility is not settled. Thus the
 continuous top-left image reconstruction is a **texel-space art study**, not
 a proven runtime render. Bitmap9 stays Faithful-only; no geometry patch was
 made. Restoration/side artwork now proceeds separately; see
-[the artwork report](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-text-restoration.md). This supersedes
+the artwork report. This supersedes
 the earlier note that no transition artwork has been generated.

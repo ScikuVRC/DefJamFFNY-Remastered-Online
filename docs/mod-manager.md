@@ -70,7 +70,7 @@ managed/rollback folders. Runtime validation still owns comparison of replacemen
 scale/layout against a source texture seen in the game. Never treat a validator
 pass as proof that a visual mapping is correct.
 
-Catalogue source is [DefJamFFNY-mods](https://github.com/vyanhursky/DefJamFFNY-mods).
+Catalogue source is DefJamFFNY-mods.
 Publishing checks append-only history and every mirror, validates packages and
 runs ClamAV in a job without signing credentials. Only a separate owner-approved
 job signs metadata matching the reviewed source. Artwork stays on external hosts;

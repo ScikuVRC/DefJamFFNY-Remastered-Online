@@ -76,9 +76,9 @@ comparisons.
 
 ### Extract and browse the game archives
 
-[Def Jam Modding Tools](https://github.com/vyanhursky/DefJam-Modding-Tools)
+Def Jam Modding Tools
 provides archive extraction, a searchable texture gallery and original/Faithful HD
-comparisons. Its [README](https://github.com/vyanhursky/DefJam-Modding-Tools#install-and-resume)
+comparisons. Its README
 explains installation with Python 3.11+ and a virtual environment. The commands
 below use `defjam-tools` from that environment. If it is not on your PATH, replace
 that name with `.\.venv\Scripts\defjam-tools.exe` on Windows or
@@ -112,8 +112,8 @@ Reuse an existing corpus if you have one; this step is optional for a first pack
 Use another free port if 8767 is already occupied.
 
 To use revision tracking and side-by-side editing reviews, see the
-[texture workshop guide](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/texture-workshop.md).
-Its [model viewer guide](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/model-viewer.md)
+texture workshop guide.
+Its model viewer guide
 covers static fighter previews. Keep corpus and review-workspace folders together
 when backing up your work; neither belongs inside your shared mod ZIP.
 
@@ -268,7 +268,7 @@ There are two distribution routes:
 - **Publish through the project catalogue.** Players download/install in the
   launcher's Mods page, then enable the pack and set priority. Maintainers review
   the package and record its exact version, download URL, ZIP hash/size and
-  compatibility in the [catalogue repository](https://github.com/vyanhursky/DefJamFFNY-mods).
+  compatibility in the catalogue repository.
   Making a ZIP does not automatically list it. See [catalogue operations](mod-manager.md#catalogue-operations).
 
 The runtime requires `manifest.ini`; the signed catalogue is separate download
@@ -295,8 +295,8 @@ the original centre, identify the actual tiles/layers, and extend scenery across
 both boundaries. Test joins, alpha, lighting, moving transitions and 4:3 as well as
 wide views. Keep text and menu controls separate from background scenery.
 
-See the tools' [widescreen scenery guide](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/widescreen-backgrounds.md)
-and [menu art workflow](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-art-workflow.md).
+See the tools' widescreen scenery guide
+and menu art workflow.
 The [wide-menu implementation notes](research/menu-ui-playtest-pack-2026-10-19.md#widescreen-backgrounds-d160ui-toolkit-defjammenu-wide)
 explain the slab/anchor format; those are dated engineering notes, so check the
 current export scripts and loader before building a new wide pack.
@@ -320,4 +320,4 @@ and replacement dimensions, enabled pack order, and a screenshot of the problem.
 For more detail, use the [texture format reference](hd-textures.md),
 [processing/review workflow](hd-texture-workflow.md), [launcher guide](launcher-and-overlay.md),
 [mod-manager reference](mod-manager.md), or the
-[Modding Tools documentation index](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/README.md).
+Modding Tools documentation index.

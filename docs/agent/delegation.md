@@ -1,6 +1,6 @@
 # Delegating to sub-agents
 
-Moved here from `AGENTS.md` §5/5a and reworded so it applies to any agent. Vlad asked for this
+Moved here from `AGENTS.md` §5/5a and reworded so it applies to any agent. The owner asked for this
 explicitly. The deciding question is whether the task is **serial or independent**, not whether it
 is hard. Use whatever sub-agent facility your tool has. Where it lets you choose, pick a smaller, cheaper
 model than the one you work on (delegation is not cheaper by itself: some tools fork the whole history

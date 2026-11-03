@@ -18,7 +18,7 @@ BEGIN
     BEGIN
         BLOCK "040904B0"
         BEGIN
-            VALUE "CompanyName", "vyanhursky"
+            VALUE "CompanyName", "the maintainer"
             VALUE "FileDescription", "@RC_DESCRIPTION@"
             VALUE "FileVersion", "@RC_VERSION@"
             VALUE "InternalName", "@RC_NAME@"

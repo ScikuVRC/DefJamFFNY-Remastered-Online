@@ -16,7 +16,7 @@ logo, the wide and portrait capsules and the social preview) from `masters/fan-t
 draws once from a heavy condensed font so that rendering does not need the font. The Steam installer
 prefers `fan/steam/` and falls back to `steam/`; the plain set is kept for future editing.
 
-The artwork is the game's own and stays the property of its rights holders; Vlad approved
+The artwork is the game's own and stays the property of its rights holders; the owner approved
 committing exactly these files (D98). `scripts/check-source-tree.py` pins them by the SHA-256
 of `branding/SHA256SUMS`, which this script writes last.
 """

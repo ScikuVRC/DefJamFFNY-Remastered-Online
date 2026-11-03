@@ -2,7 +2,7 @@
 
 ## Result and scope
 
-Vlad's D182/UI authorizes local native tests; D183/UI explicitly requires a separate menu pack
+The owner's D182/UI authorizes local native tests; D183/UI explicitly requires a separate menu pack
 that overrides conflicting Faithful HD textures. The pack is **Def Jam HD Widescreen Menus**,
 `menu-ui-hd-wide-v1-rc2`, a sparse schema-1 PNG pack folder and ZIP. Faithful HD remains optional,
 independently installed, and earlier in the enabled list. No Faithful library, executable, dump,
@@ -42,7 +42,7 @@ No runtime, renderer or toolkit source was changed for this candidate. The harne
 
 The exact recipe, approval ledger, component pins and detailed build history are
 preserved privately. Reusable assembly/export tools are maintained in
-[Modding Tools](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-exporters.md).
+Modding Tools.
 
 ## Actual pre-fight loading screens
 

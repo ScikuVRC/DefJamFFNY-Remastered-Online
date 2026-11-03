@@ -127,7 +127,7 @@ signature as well as palette changes and address independence.
 
 ## Authoring and comparison tools
 
-Use [DefJam Modding Tools](https://github.com/vyanhursky/DefJam-Modding-Tools)
+Use DefJam Modding Tools
 for extraction, atlas review, original/Faithful/restored comparisons and optional
 upscale experiments. Its `defjam-tools assets`, `corpus`, `audition` and `swinir`
 commands replace the former authoring scripts in this repository. Keep recipes,

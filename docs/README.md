@@ -47,7 +47,7 @@
 | [PROGRESS.md](../PROGRESS.md) | The maintainer's running status, decisions log and hand-off notes |
 | [Research notes](research/README.md) | Selected investigations into the game and the runtime |
 
-Release notes: [GitHub releases](https://github.com/vyanhursky/DefJamFFNY-recomp/releases)
+Release notes: GitHub releases
 and the [versioned notes](releases).
 
 Plans, the progress log and research notes are dated records. Their commands

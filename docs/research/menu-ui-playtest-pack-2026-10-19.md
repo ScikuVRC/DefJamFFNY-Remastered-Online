@@ -17,4 +17,4 @@ must cover transitions, masks, scrolling, overlays and each supported aspect.
 Native title and Mode Select lighting are separate from artwork approval.
 
 For field syntax and limits, see [texture packs](../hd-textures.md). General
-restoration/export procedures live in [Modding Tools](https://github.com/vyanhursky/DefJam-Modding-Tools).
+restoration/export procedures live in Modding Tools.

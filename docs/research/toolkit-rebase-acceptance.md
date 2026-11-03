@@ -1,10 +1,10 @@
 # Toolkit rebase acceptance, 2026-10-03
 
 The 108 historical patches have been mapped to 15 logical commits on upstream
-`1409a7d7801d3e931fb1074be6104209ddd9a33e`. Vlad explicitly approved publication;
+`1409a7d7801d3e931fb1074be6104209ddd9a33e`. The owner explicitly approved publication;
 the public fork branch is published at
-[`aa1a1b91dea9fd266acb3a3fe51dfcec3b2e6bbc`](https://github.com/vyanhursky/xboxrecomp/tree/aa1a1b91dea9fd266acb3a3fe51dfcec3b2e6bbc).
-The actual submodule is clean at that commit. Vlad accepted the Release play-test
+[`aa1a1b91dea9fd266acb3a3fe51dfcec3b2e6bbc`](https://github.com/ScikuVRC/xboxrecomp/tree/aa1a1b91dea9fd266acb3a3fe51dfcec3b2e6bbc).
+The actual submodule is clean at that commit. The owner accepted the Release play-test
 on 2026-10-04: it plays perfectly to him, audio is much better than before,
 frames are smooth and he observed no graphical glitches. Private PR
 #1 (private development record) merged into `main` at
@@ -142,7 +142,7 @@ silent. The startup events are retained for owner listening review. The baseline
 ordinary log supplies initialization/handshake evidence but no equivalent PCM or
 queue metrics; numerical baseline parity is not claimed. Pre-submit PCM can
 include rejected submissions, and its tail is not sample-aligned to the log.
-Vlad's 2026-10-04 play-test reports much better audio and accepts the experience.
+The owner's 2026-10-04 play-test reports much better audio and accepts the experience.
 This is owner listening evidence; no numerical baseline comparison was recorded.
 Evidence: `run-20261003-202450.log.err`, `candidate-fight.pcm` and
 `final-artifact-review.json`, all ignored local artifacts.
@@ -155,7 +155,7 @@ verify after all runs, and the published submodule remains clean.
 
 ## Owner acceptance and remaining limits
 
-Vlad's Release play-test is accepted and the private integration is merged.
+The owner's Release play-test is accepted and the private integration is merged.
 Each proposed upstream PR requires separate approval. M6 PC features
 follow the rebase, then M5 Proton and M9 macOS.
 

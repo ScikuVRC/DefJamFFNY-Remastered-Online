@@ -9,7 +9,7 @@ the next release.
 
 Please do not open a public issue for a security problem. Report it privately
 through GitHub's
-[private vulnerability reporting](https://github.com/vyanhursky/DefJamFFNY-recomp/security/advisories/new).
+private vulnerability reporting.
 Describe the problem, the version affected and how to reproduce it. Do not
 include game data.
 

@@ -87,7 +87,7 @@ Load the XISO from `$DEFJAM_DATA\xiso\`. Use it to capture title-screen goldens 
 - Never add anything under `game/`, `src/recomp/gen/`, `logs/` or `build/`. The CI job `hygiene` enforces the extensions.
 - Commit messages for bring-up fixes follow `fix(boot): stub sub_0001B9F0 (HalReadWritePCISpace probe)`.
 - Generic toolkit changes are validated commits on our xboxrecomp fork; publish the commit before
-  updating the parent gitlink. Upstream PRs to sp00nznet/xboxrecomp need Vlad's separate approval.
+  updating the parent gitlink. Upstream PRs to sp00nznet/xboxrecomp need the owner's separate approval.
   Game-specific bits stay here. The old numbered toolkit patches are retired; the
   [ledger](research/toolkit-rebase-ledger.md) maps each one to the fork.
 

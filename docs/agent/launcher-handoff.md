@@ -5,8 +5,8 @@ repository policy and current project state remain in those files.
 
 ## Stable release and entry point
 
-[PR #58](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/58) merged at `2e8ec40`,
-the exact **v0.10.6** tag. [Improved Game Launcher — stable/latest](https://github.com/vyanhursky/DefJamFFNY-recomp/releases/tag/v0.10.6);
+PR #58 merged at `2e8ec40`,
+the exact **v0.10.6** tag. Improved Game Launcher — stable/latest;
 The owner authorized stable promotion on October 20 (D145); tag/assets are unchanged.
 He accepted Mac appearance and confirmed the physical controller
 works, then requested beta deployment for Deck and fresh README/docs launcher screenshots (D144).
@@ -14,7 +14,7 @@ Candidate CI passed 28/28; tagged release 39452474210 passed 30/30. All nine gam
 provenance assets were downloaded and verified against GitHub digests and source/toolkit identity.
 The source branch was cleaned after merging. Keep the local worktree/app for feedback.
 
-Local worktree: `/Users/vlad/.codex/worktrees/launcher-redesign/DefJamFFNY-recomp`.
+Local worktree: `/Users/<you>/.codex/worktrees/launcher-redesign/DefJamFFNY-recomp`.
 `build/Def Jam Launcher Playtest.app` forces Home and uses the owner's normal data by default.
 Keep this local app/worktree available; built game executables must not be published.
 

@@ -2,7 +2,7 @@
 
 ## Scope
 
-Vlad authorizes combining game PR17 (design), PR62 (menu source/registrations and
+The owner authorizes combining game PR17 (design), PR62 (menu source/registrations and
 wide runtime), PR73 (long settings lists, already included in PR62 toolkit) and
 PR82 (manager/UI) into one RC candidate on current main. Deliver a game-free
 Windows setup for testing; no manual texture download/extraction. The menu pack
@@ -77,8 +77,8 @@ No ordinary save/settings or restored artwork is modified by candidate tests.
 ## Operator receipts
 
 - Catalogue source: d1f8e796c32b8027f05d2dd70ca2aa8325a8abec, catalogue PR1 merged.
-- Protected publish run: https://github.com/vyanhursky/DefJamFFNY-mods/actions/runs/39996850444.
-  Download verification, archive validation and malware scan pass. Vlad approved
+- Protected publish run: 
+  Download verification, archive validation and malware scan pass. The owner approved
   the protected catalogue-release deployment; signing and Pages publication
   completed successfully at 2026-10-23 21:17UTC. No approval boundary was bypassed.
 - Local native build: logs/integrated-rc-build-v0108.txt.
@@ -133,13 +133,13 @@ signed hosted RC2 installation, which is checked separately below.
 
 ## Platform CI and Windows candidate
 
-[CI40003181247](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/40003181247)
+CI40003181247
 passes29/29, including Windows native lock/bridge fixtures, Windows/Linux/macOS
 setup builds, runtime fixtures and source hygiene. Both prior failed CI gates
 are resolved. Game PR91 is conflict-free with main; no stable game release/tag
 has been made. The real hosted-install gate is checked separately below.
 
-[Windows game-free setup artifact](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/40003181247/artifacts/12521984699),
+Windows game-free setup artifact,
 windows-setup-assets, contains DefJamSetup-0.10.8-windows-x64.exe, its checksum and
 provenance. Downloaded locally and verified:58819072bytes, SHA256
 8fbc03aee2a762c801c32f8dac299ac2bd92ebfb992992517a64c7bafc3a8212.
@@ -173,7 +173,7 @@ loading log logs/run-20261023-113657.log.err; no new artwork was generated.
 
 ## Owner-approved live publication
 
-Vlad approved catalogue-release deployment 39996850444. Both verify and publish
+The owner approved catalogue-release deployment 39996850444. Both verify and publish
 jobs succeeded; the live index and detached signature are available at the
 client's default GitHub Pages URL. Client verification with the unchanged pinned
 public key accepts revision 1, issued 2026-10-23 17:46:17UTC and expiring 2026-11-22

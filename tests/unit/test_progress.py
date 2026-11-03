@@ -30,7 +30,7 @@ SAMPLE = """\
 | D1 | 2026-09-17 | Data lives outside the repo | Shippable without assets. |
 | D2 | 2026-09-18 | Use the XISO | Same partition. |
 
-## 5. Open questions for Vlad
+## 5. Open questions for the owner
 
 - **(2026-10-12) Mac updater.** Still to do: the interactive run.
 - **(2026-10-11) HD textures.** Mac regressions.

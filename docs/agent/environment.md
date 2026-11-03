@@ -9,6 +9,6 @@ the cost of a re-lift) stay in `AGENTS.md` too.
 - A full re-lift (`recomp.ps1`) plus build is about 20 minutes. Changing the lifter means re-lifting all 17k functions, so batch lifter changes rather than testing them one at a time.
 - The runtime writes `xbox_kernel.log` into the CWD; it is gitignored.
 - Ghidra 12.1.3 and JDK 21 are installed; the Ghidra naming pass is optional but makes logs readable.
-- xemu is installed as the reference emulator but needs Vlad's own BIOS/MCPX/EEPROM.
+- xemu is installed as the reference emulator but needs the owner's own BIOS/MCPX/EEPROM.
 - PowerShell 5.1 cannot pipe a here-string, and its `Set-Content -Encoding utf8` adds a BOM: write a commit message to a file and use `git commit -F <file>`.
 - A shell that collapses backslashes (some agent shells do; the Claude Code one does, see `CLAUDE.md`) breaks Windows paths and `\n` inside C string literals written from a heredoc. Write the script to a file and run it, use forward slashes, or build the escape as `chr(92) + 'n'`.

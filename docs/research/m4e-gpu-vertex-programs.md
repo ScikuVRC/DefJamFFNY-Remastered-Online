@@ -1,6 +1,6 @@
 # M4e: vertex programs on the GPU (design)
 
-Status: design, 2026-09-29. Owner decision: Vlad asked for this as its own milestone after the audio, crowd
+Status: design, 2026-09-29. Owner decision: the owner asked for this as its own milestone after the audio, crowd
 and R3 fixes.
 
 ## Why

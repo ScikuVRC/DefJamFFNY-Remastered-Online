@@ -16,7 +16,7 @@ The idea: a project-endorsed mod list that every installation fetches and keeps 
 mods in a list, the chosen mods download and install, and a newer version shows as "Update available". Mods a
 player drops into `mods/` by hand keep working beside it.
 
-Vlad's answers of 2026-10-11:
+The owner's answers of 2026-10-11:
 
 | # | Question | Answer |
 |---|---|---|
@@ -136,7 +136,7 @@ A separate program, installed by Setup next to the game. It is the only componen
 
 ### 4.3 The index repository
 
-A **separate** repository (proposed `vyanhursky/DefJamFFNY-mods`), so that a takedown aimed at a linked mod
+A **separate** repository (proposed `the mod catalogue repository`), so that a takedown aimed at a linked mod
 never touches the port's repository. GitHub Pages serves `index.json` and its signature.
 
 ```json
@@ -286,9 +286,9 @@ in the helper core or the index CI), then extract it once a second project wants
    native program? Does Setup keep its Python in the installation after building?
 2. Name and owner of the index repository (`DefJamFFNY-mods` under the same account, or an organisation so
    other maintainers can review).
-3. Who holds the index signing key, and whether CI signs (key in a protected environment) or Vlad signs
+3. Who holds the index signing key, and whether CI signs (key in a protected environment) or the owner signs
    releases of the index by hand.
-4. Reviewers besides Vlad, and the turnaround to promise modders.
+4. Reviewers besides the owner, and the turnaround to promise modders.
 5. Whether the launcher's Textures page becomes the Mods page or the two stay separate.
 6. Whether the index may list linked mods hosted on sites with download interstitials (Drive, MEGA) as
    "manual download" entries the helper opens in a browser instead of fetching.

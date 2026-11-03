@@ -24,7 +24,7 @@ No game function replacement or per-side renderer workaround is needed.
 The fork commit changes `tools/recomp/lifter.py`, documents the merge in
 `translator.py`, and adds synthetic regressions. The game gitlink must point
 to the published fork commit before this is integrated. Commit `0423521` is
-published on `vyanhursky/xboxrecomp`, branch `defjam/ui-preview-eyes-meters`.
+published on `ScikuVRC/xboxrecomp`, branch `defjam/ui-preview-eyes-meters`.
 
 ## Evidence
 

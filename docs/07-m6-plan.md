@@ -1,6 +1,6 @@
 # M6 plan: PC features
 
-Approved by Vlad on 2026-10-05 (D63). Each slice is a public source release after his play-test;
+Approved by the owner on 2026-10-05 (D63). Each slice is a public source release after his play-test;
 the next slice does not start until he has tested the previous one.
 
 ## Design: one settings core, three front ends
@@ -54,9 +54,9 @@ at 4:3 with the gamma ramp off and an explicit render scale, so they stay compar
 ## Texture-pack investigation
 
 The 2026-10-08 HD texture and local upscaling plan ([notes](research/hd-textures-notes.md)) records the renderer gaps,
-asset categories, local GPU workflow, pilot and proposed expanded acceptance gates. Vlad chose faithful cleanup
+asset categories, local GPU workflow, pilot and proposed expanded acceptance gates. The owner chose faithful cleanup
 and static assets first, with video extraction/workflow planning now and HD video playback later (D83).
-On 2026-10-08 Vlad moved HD before widescreen (D84). A subsequent public-state refresh found native
+On 2026-10-08 the owner moved HD before widescreen (D84). A subsequent public-state refresh found native
 macOS/Linux v0.5.0 already released (D85), so HD is proposed as v0.6.0 and widescreen remains unscheduled ToDo. C: is approved for the corpus and scratch; implementation uses an isolated lane.
 The implementation and remaining gates are tracked in `docs/research/hd-textures-notes.md` in that lane;
 player/tool instructions are `docs/hd-textures.md` there. Neither a prototype nor art coverage closes the release gate.

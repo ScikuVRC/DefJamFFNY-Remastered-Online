@@ -7,10 +7,10 @@ recomp 0.12.1 with `textures-v1` and `wide-v1`. Refresh the launcher catalogue,
 update the mod and restart the game; the texture pack does not require reinstalling
 the game. Faithful HD remains optional and separate.
 
-- [Release metadata and notes](https://github.com/vyanhursky/DefJamFFNY-mods/blob/main/docs/menu-ui-hd-wide.md) belong to DefJamFFNY-mods.
-- [Restoration/review procedure](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-text-restoration.md),
-  [exporters](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-exporters.md), [native registration](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-native-registration.md)
-  and [lossless PNG staging](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/lossless-png.md) belong to Modding Tools.
+- Release metadata and notes belong to DefJamFFNY-mods.
+- Restoration/review procedure,
+  exporters, native registration
+  and lossless PNG staging belong to Modding Tools.
 - The original authoring workspace and independent private backups contain raw
   images, exact prompts, drafts, approvals, detailed ledgers, viewer data and
   checkpoint manifests. Preserve them in place. A Git clone is not their backup.

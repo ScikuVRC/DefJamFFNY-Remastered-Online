@@ -1,10 +1,10 @@
 # Texture authoring and runtime integration
 
-Use [DefJam Modding Tools](https://github.com/vyanhursky/DefJam-Modding-Tools)
+Use DefJam Modding Tools
 for texture extraction/review, optional upscale auditions, native atlas assembly,
-comparison viewers and export. Start with its [workflow](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/WORKFLOW.md),
-[menu lettering guide](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-text-restoration.md) and
-[menu exporters](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-exporters.md). Keep the existing private corpus,
+comparison viewers and export. Start with its workflow,
+menu lettering guide and
+menu exporters. Keep the existing private corpus,
 workspace, exact prompts/revisions, approvals and backups intact. Reopening a
 review must not regenerate accepted artwork or reset its history.
 
@@ -23,6 +23,6 @@ recipes, approval ledgers and checkpoint paths are private inputs, not game conf
 See [the first-pack guide](texture-modding-getting-started.md) for runtime capture,
 manifest layout and loading a local pack; [HD textures](hd-textures.md) covers game
 settings and Setup. Published versions, hashes, download locations, credits and
-concise release notes belong in the [mod catalogue](https://github.com/vyanhursky/DefJamFFNY-mods).
+concise release notes belong in the mod catalogue.
 Validate candidate packs with isolated saves and serial native game runs. Artwork
 approval, runtime acceptance and signed publication are separate stages.

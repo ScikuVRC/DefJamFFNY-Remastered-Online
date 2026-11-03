@@ -130,4 +130,4 @@ The plan built from these is in [docs/widescreen](../widescreen/README.md), whic
 
 ## Authoring records and released mods
 
-Reusable texture authoring procedures live in [Modding Tools](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-text-restoration.md). Production drafts, exact prompts, approvals and local checkpoint records are retained in the private authoring workspace. [Released menu versions](https://github.com/vyanhursky/DefJamFFNY-mods/blob/main/docs/menu-ui-hd-wide.md) are documented with the catalogue. This tree retains runtime investigations and compatibility results.
+Reusable texture authoring procedures live in Modding Tools. Production drafts, exact prompts, approvals and local checkpoint records are retained in the private authoring workspace. Released menu versions are documented with the catalogue. This tree retains runtime investigations and compatibility results.

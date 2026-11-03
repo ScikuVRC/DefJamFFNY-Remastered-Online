@@ -1,6 +1,6 @@
 # Launching a scenario by choice: fixtures, generated routes, the crowd, cutscenes
 
-2026-10-14. Asked by Vlad: as bug-fixing moves to short-lived faults at particular
+2026-10-14. Asked by the owner: as bug-fixing moves to short-lived faults at particular
 venues, fighters and Story points, can a test start *there*, repeatably, and can the
 crowd's randomness be controlled and any in-engine cutscene be launched by choice.
 Written on a machine with no game dump: everything below that needs the game is

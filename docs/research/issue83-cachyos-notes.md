@@ -1,7 +1,7 @@
 # Issue #83: CachyOS installation compile failure
 
 Investigated 2026-10-23 on public main `dcd0df0`, branch `fix/issue83-cachyos`.
-Report: [issue #83](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/83),
+Report: issue #83,
 including the reporter's v0.10.6 setup log.
 
 ## Cause
@@ -53,12 +53,12 @@ its output is decoded as UTF-8.
 
 ## Hand-off
 
-Published [PR #90](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/90)
-on the owner's request. It links #83. [CI run 39981681675](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/39981681675)
+Published PR #90
+on the owner's request. It links #83. CI run 39981681675
 passed all 28 jobs after retrying a Ninja download timeout in `kernel_directory`
 (the failed attempt never reached compilation).
 
-The reporter's [Linux candidate artifact](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/39981681675/artifacts/12512749441)
+The reporter's Linux candidate artifact
 is `linux-setup-assets`. Its setup is version 0.10.7 with source `6c9563e`
 (the PR merge containing fix `8bf8fbf`), toolkit `8589f88`, development false.
 Downloaded and verified the artifact ZIP against GitHub's digest, the installer
@@ -67,10 +67,10 @@ and both patched launcher source files byte for byte against the tested fix.
 Installer SHA-256: `9d8866e267e30e8f0fb5563cae6af3c991f0a3ce349ade5c915ac3cecc4e813a`.
 Local receipt: `build/issue83-artifact-verification.json`.
 
-[Test instructions and download link posted on #83](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/83#issuecomment-6369126220).
+Test instructions and download link posted on #83.
 They specify Bundled release (offline) so the candidate's fixed source is used,
 Install for a failed first install, Clean Update from a working 0.10.6, or
-Clean Rebuild for an existing 0.10.7. The [reporter confirmed on 2026-10-23](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/83#issuecomment-6369284367):
+Clean Rebuild for an existing 0.10.7. The reporter confirmed on 2026-10-23:
 "It is working now. I'm watching the intro." The owner also reports a second
 successful test from a Discord user. The owner authorized merging PR #90 and
 closing #83, with the fix to ship in the next release the owner makes. All 29

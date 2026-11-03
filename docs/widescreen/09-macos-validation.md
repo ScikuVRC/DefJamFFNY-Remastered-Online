@@ -121,7 +121,7 @@ These measurements establish that underruns predate widescreen, rather than
 a controlled difference in underrun rate. PCM content and the evaluated
 gameplay checks passed. Audio sources
 are unchanged by widescreen; these measurements reproduce the existing audio
-issue [#11](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/11).
+issue #11.
 The isolated baseline is a source/executable copy without its own Git metadata;
 its report can discover the surrounding candidate worktree. Use the explicit
 baseline identity and certified source/executable hashes, not that inherited

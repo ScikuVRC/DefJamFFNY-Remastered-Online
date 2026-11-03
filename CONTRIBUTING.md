@@ -12,7 +12,7 @@ pasted into Markdown. Refer to game code by address and describe its behavior.
 ## Reporting a problem
 
 Check [known issues](docs/known-issues.md) and the open
-[issues](https://github.com/vyanhursky/DefJamFFNY-recomp/issues) first, then open
+issues first, then open
 a new issue with the form that fits:
 
 - **Bug report**: something goes wrong in the game.
@@ -46,7 +46,7 @@ decisions. Dated research notes do not override current source or later decision
 |---|---|
 | Game-specific integration, hooks, settings, launcher and overlay | `src/` |
 | Hand-written replacements for single game functions | `src/recomp_manual.c` |
-| Generic runtime or translator fixes | the [toolkit fork](https://github.com/vyanhursky/xboxrecomp), one topic per commit with focused tests; publish the tested commit, then update the submodule pointer here |
+| Generic runtime or translator fixes | the [toolkit fork](https://github.com/ScikuVRC/xboxrecomp), one topic per commit with focused tests; publish the tested commit, then update the submodule pointer here |
 | Build, test and diagnostic tools | `scripts/`, with a unit test in `tests/unit` where there is logic to break |
 | Windows installer | `setup/` and `scripts/build-setup.ps1`; see [installer behavior](docs/setup-installer.md) |
 | Guides | `docs/`; update the guide in the same pull request as the behavior it describes |

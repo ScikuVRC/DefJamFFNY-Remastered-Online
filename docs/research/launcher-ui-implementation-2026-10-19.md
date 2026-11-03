@@ -1,8 +1,8 @@
 # Launcher implementation and playtest — 2026-10-19
 
-Vlad approved the Brick & paper proposal and requested implementation in a worktree, tests and a push.
+The owner approved the Brick & paper proposal and requested implementation in a worktree, tests and a push.
 Branch `codex/launcher-redesign`, based on main `63207ea`; source commit `205582d`.
-[Draft PR #58](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/58) is pushed for owner playtest. No release/tag or merge was requested.
+Draft PR #58 is pushed for owner playtest. No release/tag or merge was requested.
 
 Incoming agents: start with the [short launcher handover](../agent/launcher-handoff.md).
 
@@ -80,7 +80,7 @@ Final-build checks passed:
   unlock-option persistence/default off, brightness 151/vignette off saved and applied.
 - **Combat retry 27/27 assertions**, including the audio gates: logs/regress-20261019-125931.txt,
   scenario logs/scenarios/regress-combat-20261019-125530. The first failure above remains recorded.
-- **[Source CI 28/28](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/39289203701)** at `205582d`: Windows/MSVC game-side source compile and native
+- **Source CI 28/28** at `205582d`: Windows/MSVC game-side source compile and native
   fixtures, Windows/macOS/Linux setup builds and smoke/update checks, POSIX runtime fixtures,
   Python tools and source hygiene. All run without game data.
 
@@ -109,7 +109,7 @@ compiles source/setup without game data. No built game executable is published.
 
 ## Follow-up — 2026-10-20
 
-Vlad continued in the original chat and accepted the Mac appearance, requesting three refinements:
+The owner continued in the original chat and accepted the Mac appearance, requesting three refinements:
 
 - Slider tracks now use a lighter warm charcoal with distinct hover/active states; the gold handle
   stays. Styling is scoped to sliders in the shared launcher/overlay widget.

@@ -1,6 +1,6 @@
 # Issue #72: Windows startup address-space collision
 
-Investigation on 2026-10-20 of [issue #72](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/72),
+Investigation on 2026-10-20 of issue #72,
 including the reporter's follow-up and attached
 [`run-20261020-193903.error.log`](https://github.com/user-attachments/files/33730789/run-20261020-193903.error.log).
 The original attachment is retained locally under `logs/issue72/`; no game bytes
@@ -70,9 +70,9 @@ History does not establish when that PC first encountered the bad placement.
 | Public tag `v0.4.0`, 2026-10-07 | Adds the pre-game launcher before guest-memory initialization, which can change host address-space occupancy; an exposure hypothesis, not a proven trigger on this PC |
 | `v0.10.4` → `v0.10.5` | No change to the toolkit pin, `src/main.c` or `src/hooks/ac97_bm.c`; the startup memory-placement code was not changed by this release |
 
-Primary source links: [toolkit fallback change](https://github.com/vyanhursky/xboxrecomp/commit/75119d5),
-[Windows reservation cleanup](https://github.com/vyanhursky/xboxrecomp/commit/9547d39),
-[AC97 initialization in v0.1.0](https://github.com/vyanhursky/DefJamFFNY-recomp/blob/v0.1.0/src/hooks/ac97_bm.c#L134-L151).
+Primary source links: [toolkit fallback change](https://github.com/ScikuVRC/xboxrecomp/commit/75119d5),
+[Windows reservation cleanup](https://github.com/ScikuVRC/xboxrecomp/commit/9547d39),
+[AC97 initialization in v0.1.0](https://github.com/ScikuVRC/DefJamFFNY-recomp/blob/main/src/hooks/ac97_bm.c#L134-L151).
 
 In plain language: the port found a place for Xbox RAM but did not check that
 the other memory areas needed by the emulated devices could fit around it.
@@ -154,14 +154,14 @@ Local evidence: `logs/issue72/full-regression.txt`,
 
 ## Windows candidate published
 
-Vlad restored GitHub authentication and requested publication of the test installer
+The owner restored GitHub authentication and requested publication of the test installer
 and a reply on #72 (D144). Toolkit `e818066` is published on
 `defjam/issue72-memory-layout`; parent source/pin commit is
 `9e4f805877d36e8fad34a3fae8d7d0c49ba998d2` on `fix/issue72-startup`.
 The candidate retains the v0.10.5 baseline plus this memory fix; it does not
 include unrelated launcher-beta changes or replace the stable release.
 
-[Windows candidate run 39519139830](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/39519139830) passed:
+Windows candidate run 39519139830 passed:
 
 - Native MSVC allocator fixture: 1/1; real collision, all 34 rollback points,
   retries/exhaustion, reservation failure, aliases, re-init and 128 MB layout.
@@ -170,7 +170,7 @@ include unrelated launcher-beta changes or replace the stable release.
 - Installer tests: 177 passed / 9 skipped; production payload inventory passed.
 - Packaged UI, preparation/responsiveness and silent invalid-input smoke tests passed.
 
-[Download the Windows test installer ZIP](https://github.com/vyanhursky/DefJamFFNY-recomp/actions/runs/39519139830/artifacts/12310426740)
+Download the Windows test installer ZIP
 (GitHub sign-in required; expires **2026-11-20 00:11 UTC**). It contains exactly
 the game-free `DefJamSetup-0.10.5-windows-x64.exe`, SHA-256 and provenance.
 Downloaded installer: **54,650,880 bytes**, SHA-256
@@ -179,7 +179,7 @@ Independent local verification matched the checksum and provenance, checked
 `development=false`, source/pin above, and inclusion of `windows_guest_layout.h`.
 No game executable or translated code is distributed.
 
-[Issue reply posted and read back](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/72#issuecomment-6304712397) explains the cause and history,
+Issue reply posted and read back explains the cause and history,
 links the artifact, and asks @klwn911 to use the bundled build with **Clean
 Rebuild**, then test the main menu and a fight. The installed game itself has
 not been run on Windows by this agent; **reporter acceptance remains pending**.
@@ -194,22 +194,22 @@ fix `72bec86`; apply this memory topic on that fork tip to preserve the other fi
 
 ## Pull requests and release hold
 
-At Vlad's request, submitted [parent PR #76](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/76)
-and [fork toolkit PR #3](https://github.com/vyanhursky/xboxrecomp/pull/3).
+At the owner's request, submitted parent PR #76
+and [fork toolkit PR #3](https://github.com/ScikuVRC/xboxrecomp/pull/3).
 Both are open and mergeable. Parent #76 starts from current main `7bb4bdf`, retains
 its launcher/beta work, pins the same tested `e818066`, and registers the new
 fixture in Windows and POSIX CI. Its diff contains only CI, the pin and issue72
 research/state. Parent integration CI is running; the existing reporter artifact
 and its v0.10.5 baseline remain unchanged.
 
-**Leave both PRs unmerged.** Vlad will request the release after the reporter
+**Leave both PRs unmerged.** the owner will request the release after the reporter
 confirms the Windows fix. No auto-merge, tag or release was enabled. Fork PR #3
 targets the project's `defjam/audio-fix`, not the upstream repository. Separate
 texture-list PR #73 must be preserved when the two toolkit topics are integrated.
 
 ## 2026-10-21 reporter follow-up: setup version mismatch
 
-[Reporter reply](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/72#issuecomment-6311677698)
+Reporter reply
 contains setup logs, not a new game-crash log. The screenshot and current five-line
 log show the correct candidate (`source=9e4f805`, `toolkit=e818066`) selected
 **Bundled release (offline)** and **Clean Rebuild (same version)**, then stopped:
@@ -233,7 +233,7 @@ starts the selected operation. This attempt never exercised the patched runtime,
 so it neither confirms nor disproves the memory fix. No further runtime fix or
 new Windows artifact is justified by these logs.
 
-[Clarifying test instructions posted](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/72#issuecomment-6316443011).
+Clarifying test instructions posted.
 Existing setup policy/recovery tests pass **72/1 skip**; direct checks reproduce
 the exact rebuild refusal and confirm update/auto accept 0.10.1 → 0.10.5, and
 rebuild accepts 0.10.5 → 0.10.5. No installer policy was relaxed or changed.

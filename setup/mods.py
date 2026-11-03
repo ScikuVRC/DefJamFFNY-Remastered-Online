@@ -30,7 +30,9 @@ import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mod_catalogue as contract
 
-CATALOGUE_URL = 'https://vyanhursky.github.io/DefJamFFNY-mods/index.json'
+# No project catalogue is published: a project that publishes one puts its address here and its
+# signing key in config/mods/catalogue-keys.json. Without a key, Refresh says so; local mods still work.
+CATALOGUE_URL = ''
 KEYS = Path(__file__).resolve().parents[1] / 'config/mods/catalogue-keys.json'
 MAX_INDEX = 8 * 1024**2
 MAX_FILE = 512 * 1024**2

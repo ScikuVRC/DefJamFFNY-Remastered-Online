@@ -18,7 +18,7 @@ data, disc images or sources for them. Such posts are removed.
 ## Reporting
 
 Report unacceptable behavior to the maintainer,
-[@vyanhursky](https://github.com/vyanhursky), or with GitHub's
+the maintainer, or with GitHub's
 "Report content" option on the comment or issue. Reports are handled privately.
 
 ## Enforcement

@@ -228,7 +228,7 @@ own validation before a release. The feature remains optional and off by default
 ## PR submission — 2026-10-31
 
 Toolkit source is published at `b7db8c1a110711b42e6a7e69121e008ee0c4f8be`
-([fork PR #7](https://github.com/vyanhursky/xboxrecomp/pull/7)), based on the
+([fork PR #7](https://github.com/ScikuVRC/xboxrecomp/pull/7)), based on the
 v0.12.3 toolkit pin. The parent records that exact published gitlink. The release
 toolkit branch must combine it with other queued toolkit topics before candidate
 validation. No upstream PR is part of this submission.

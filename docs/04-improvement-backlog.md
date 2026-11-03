@@ -161,7 +161,7 @@ Done in v0.6.2 as planned below, with two differences: the launcher uses SDL's r
 and the SDL events are fed to ImGui by a small piece of glue instead of `imgui_impl_sdl3`. Linux uses the same sources and has
 shipped it since v0.7.0. What follows is the plan as written.
 
-Asked for by Vlad at the v0.5.0 release. The start-up launcher and the in-game overlay (v0.4.0,
+Asked for by the owner at the v0.5.0 release. The start-up launcher and the in-game overlay (v0.4.0,
 `src/hooks/pc_ui.cpp`, `pc_launcher.cpp`) are Dear ImGui on its Win32 and Direct3D 11 backends, so the
 macOS build leaves both out: the game starts at once and `settings.ini` is edited by hand
 (`src/hooks/pc_ui.h` answers for them off Windows).
@@ -188,7 +188,7 @@ shows and honours `[launcher] skip`, and the harness's overlay check
 
 ## Saves for regression tests without copying them by hand — planned 2026-10-08
 
-Asked for by Vlad at the v0.5.0 release: a way to share, transfer or store the saves the regression needs,
+Asked for by the owner at the v0.5.0 release: a way to share, transfer or store the saves the regression needs,
 or a "golden save" for testers.
 
 The problem as it stands. `intro`, `crib`, `gym`, `unlock` and the scenario fixtures depend on what is in
@@ -201,7 +201,7 @@ copies. A new tester has no Story profile at all.
 Constraint: saves are not published. The release process says so in as many words ("Do not publish
 generated code, executables, game files, saves or audio"), and a save made by the game is the game's
 own format with its artwork thumbnail inside (`saveimage.xbx`). Hashes and recipes are fine; bytes need a
-decision from Vlad.
+decision from the owner.
 
 Options, cheapest first:
 
@@ -216,7 +216,7 @@ Options, cheapest first:
 3. **Export and import of the owner's fixture.** `harness.py save export <file>` / `save import <file>`:
    one archive of `UserData`/`TitleData` with a manifest of hashes, moved between his machines by
    whatever he already uses. Solves "without me needing to copy over" for him; not for testers.
-4. **A published golden save.** Only if Vlad decides a save he made is his to publish and the
+4. **A published golden save.** Only if the owner decides a save he made is his to publish and the
    thumbnail question is settled; then a release asset with its hash in `config/`, never in git.
 
 Suggested order: 1 now (small, and it is what failed), 2 as the tester answer, 3 if he still wants it
@@ -294,7 +294,7 @@ and is flagged more by antivirus.
 - Test it on a clean Windows 11 VM with no Python, no Visual Studio and no git, and on a machine that already has
   VS 2022; use a dump that is not the developer's usual one. Record the timings in the release notes.
 
-**Open questions for Vlad** (ask before starting): do it before or after v0.5.0 (true 16:9)? Is an unsigned
+**Open questions for the owner** (ask before starting): do it before or after v0.5.0 (true 16:9)? Is an unsigned
 installer with a documented SmartScreen warning acceptable, or should code signing be planned and paid for? Should
 the installer also offer to install `extract-xiso` itself, or require an already extracted dump?
 
@@ -424,7 +424,7 @@ whose behavior now includes upstream-covered and superseded parts. Keep diagnost
 each proposed fix against current upstream. The direct-call wrapper limitation is documented in
 AGENTS.md; old findings need fresh source evidence before they become issue reports.
 
-**When.** After the rebase's automated gates and Vlad's Release play-test. Opening each upstream PR
+**When.** After the rebase's automated gates and the owner's Release play-test. Opening each upstream PR
 requires his separate approval (or an explicitly named batch). The 108-patch replay mechanism is retired.
 
 ## 6b. `apply-toolkit-patches.ps1` is only idempotent for patches that do not overlap

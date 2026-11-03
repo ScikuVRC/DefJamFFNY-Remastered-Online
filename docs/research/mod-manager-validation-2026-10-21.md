@@ -33,14 +33,14 @@ actual menu release still requires its separate PR62/PR73/native-acceptance work
 
 ## Trust and publishing
 
-[Catalogue PR1](https://github.com/vyanhursky/DefJamFFNY-mods/pull/1) contains
+Catalogue PR1 contains
 append-only version/revocation checks, strict ZIP/image validation and ClamAV.
 Archive checking runs in a job without signing credentials; the separate protected
 job installs exact hash-pinned binary wheels and signs only metadata matching the
 reviewed source and next revision. Missing published history fails closed except
 for explicit first-empty-catalogue bootstrap. Every mirror must match exact bytes.
 
-Vlad explicitly approved generating the Ed25519 key, retaining a private local
+The owner explicitly approved generating the Ed25519 key, retaining a private local
 backup and setting the protected GitHub environment secret after automatic review
 requested specific credential authorization. Secret provisioning succeeded; no
 private value appeared in tool output or source. Public pins match across repos.

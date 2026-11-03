@@ -1,6 +1,6 @@
 # Gameplay testing and upstream upgrade roadmap
 
-Requested by Vlad on 2026-10-05. Deferred work, not implemented acceptance gates.
+Requested by the owner on 2026-10-05. Deferred work, not implemented acceptance gates.
 This plan does not change current milestone definitions or toolkit pins.
 
 ## Goal
@@ -109,7 +109,7 @@ Treat `v0.13.0` as a future candidate until a tag is verified.
 
 | Game | Integration | Upgrade implication |
 | --- | --- | --- |
-| Def Jam | `vyanhursky/xboxrecomp` gitlink `aa1a1b9`; upstream base `1409a7d`, 15 fork commits | Rebase/merge required topics onto release candidate; retire upstream-equivalent changes only with behavioral evidence. |
+| Def Jam | `ScikuVRC/xboxrecomp` gitlink `aa1a1b9`; upstream base `1409a7d`, 15 fork commits | Rebase/merge required topics onto release candidate; retire upstream-equivalent changes only with behavioral evidence. |
 | TimeSplitters 2 | `phobos665/xboxrecomp` gitlink `f6eac56`; common ancestor `3706cef` dated September 12 | Substantial integration work; raw divergence is 305 upstream-only / 143 fork-only commits. Patch equivalence is not established by these counts. |
 | Mercenaries | Customized runtime/recompiler in repository, port defaults `XBOXRECOMP_DIR` to repository root | No common Git ancestor found in fetched published histories. Selective source migration or explicit dependency extraction, not an ordinary gitlink bump. |
 

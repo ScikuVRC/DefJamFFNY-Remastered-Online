@@ -56,4 +56,4 @@ two). The game checks the `0x38` field first and stops at the first mismatch. Th
 `XboxSignatureKey`, which the port exports as 16 zero bytes. The tool recomputes the three fields
 with that key; `tests/unit/test_save_import.py` fails if the kernel stops exporting zeros, because
 imported saves would then stop verifying. Details and the trace that found this are in
-[issue #154](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/154).
+issue #154.

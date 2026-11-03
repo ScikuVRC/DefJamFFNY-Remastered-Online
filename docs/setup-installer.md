@@ -79,7 +79,7 @@ No dump, game data or generated code is uploaded.
 
 ## Update, repair and uninstall
 
-The updater implementation in [PR #18](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/18)
+The updater implementation in PR #18
 adds **Fetch GitHub releases**, a release picker and an operation picker to all
 three setup wizards. It is not yet in a published setup release. The bundled
 release remains available offline; fetching chooses the newest stable release
@@ -355,7 +355,7 @@ the Steam shortcut were made. A repair with the same folders reused every verifi
 took 13 seconds. An update from v0.6.1 to v0.6.2 built Dear ImGui offline in the container, and the
 installed game opened its launcher. `--uninstall` removed the application, the launcher and
 both entries and kept the data folder (exit 0). Also checked: the wizard opens and closes
-(`--ui-smoke`), and a silent run with a missing dump exits 2. Vlad played the installed game
+(`--ui-smoke`), and a silent run with a missing dump exits 2. The owner played the installed game
 on the Deck. Not yet checked: the wizard driven by hand from start to finish, the Steam shortcut
 started from Gaming Mode, and a desktop
 Linux distribution with its own toolchain (`--toolchain host`).

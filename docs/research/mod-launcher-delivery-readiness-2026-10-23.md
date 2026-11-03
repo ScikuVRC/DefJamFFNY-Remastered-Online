@@ -12,10 +12,10 @@ No implementation, game, save or configuration changes were made during this aud
 
 | PR | Purpose | Current status |
 | --- | --- | --- |
-| [17](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/17) | Mod-system architecture/design: signed GitHub JSON, external archives, helper and future override types. | Open, docs only, conflicts with main. No runtime functionality. |
-| [62](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/62) | Separate HD/widescreen menu builders, registrations, manifests and native test records; toolkit wide-slab support. Artwork stays outside Git. | Draft/open, conflicts with main; toolkit dd63e17 includes PR73's settings fix. Latest documentation head d447922 has no reported checks. |
-| [73](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/73) | Fix pack lists longer than 95 characters; allow 1023 bytes and preserve long settings lines. | Open, conflicts with main; already included in PR62's combined toolkit. Integrate once. |
-| [82](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/82) | Verified catalogue refresh/install/update/rollback, local/project discovery and shared enable/load order UI; bundled verification helper. | Draft/open, conflicts with main; toolkit 32aab4d does not include wide slabs. CI has two failed jobs. |
+| 17 | Mod-system architecture/design: signed GitHub JSON, external archives, helper and future override types. | Open, docs only, conflicts with main. No runtime functionality. |
+| 62 | Separate HD/widescreen menu builders, registrations, manifests and native test records; toolkit wide-slab support. Artwork stays outside Git. | Draft/open, conflicts with main; toolkit dd63e17 includes PR73's settings fix. Latest documentation head d447922 has no reported checks. |
+| 73 | Fix pack lists longer than 95 characters; allow 1023 bytes and preserve long settings lines. | Open, conflicts with main; already included in PR62's combined toolkit. Integrate once. |
+| 82 | Verified catalogue refresh/install/update/rollback, local/project discovery and shared enable/load order UI; bundled verification helper. | Draft/open, conflicts with main; toolkit 32aab4d does not include wide slabs. CI has two failed jobs. |
 
 Latest release is v0.10.7, main toolkit8589f8834e3c370e2def3c6757b0d4f6e3e89d70.
 Its texture_pack.c contains neither [wide] parsing nor texture_pack_wide_slabs.
@@ -32,10 +32,10 @@ combine the required fixes on the current published toolkit and pin that result.
   See [upload report](menu-ui-r2-windows-playtest-2026-10-23.md).
   Faithful is optional and not bundled.
 - Hosted catalogue: not live. The exact helper URL
-  https://vyanhursky.github.io/DefJamFFNY-mods/index.json and its .sig both
+   and its .sig both
   return404. Pages API also returns404. Catalogue main is the foundation only;
   no menu version record has been added. Source publication implementation is
-  [catalogue PR1](https://github.com/vyanhursky/DefJamFFNY-mods/pull/1), open,
+  catalogue PR1, open,
   mergeable and validation green. Key pin, private backup and protected signing
   secret are provisioned; publication requires the owner's environment approval.
 - Launcher install/enable/order: implemented in PR82, not integrated or released.

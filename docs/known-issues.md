@@ -11,7 +11,7 @@ v0.13.0 on November 1, 2026 after reviewing the regression comments. Testing is
 complete on Windows, macOS and Linux; not every gate passed. See the
 [release notes](releases/v0.13.0.md) for the platform results.
 
-- [Memory-growth investigation #166](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/166)
+- Memory-growth investigation #166
   retains the positive Windows and Deck deltas, differing memory metrics and
   longer HD scene observations. The 64 MiB threshold is unchanged. This is not a
   confirmed leak diagnosis; the owner's accepted Windows release record does not
@@ -21,8 +21,8 @@ complete on Windows, macOS and Linux; not every gate passed. See the
   Refresh-on passed 40/40. The strict test remains failed; no runtime-loss claim.
 - Deck replay/repeat golden discrepancy remains under #98. Repeat runs now agree
   with each other at 79 records, but the stored golden has 80.
-- Owner-reported [SC04 A/V lag #161](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/161)
-  and [Shops map border #162](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/162)
+- Owner-reported SC04 A/V lag #161
+  and Shops map border #162
   remain queued for future fixes. PR #164 is not part of this release.
 - Real setup install/Clean Update and separate Deck playtest were not performed
   for this train. Game-free setup CI is distinct from those local acceptance steps.
@@ -34,14 +34,14 @@ remains optional/off by default. No goldens or memory thresholds were relaxed.
 
 ## Remaining investigations
 
-- **Steam Deck deterministic test failures ([#98](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/98)).** The v0.12.0 candidate passes 17/18 regression checks: replay differs from the Mac golden, and the separate repeat check diverges at step 541. Windows and macOS pass their repeat checks. This remains unresolved; see the [Deck candidate report](research/rc-v0.12.0-deck-2026-10-25.md).
+- **Steam Deck deterministic test failures (#98).** The v0.12.0 candidate passes 17/18 regression checks: replay differs from the Mac golden, and the separate repeat check diverges at step 541. Windows and macOS pass their repeat checks. This remains unresolved; see the [Deck candidate report](research/rc-v0.12.0-deck-2026-10-25.md).
 
-- **Story shops pause briefly on an item change ([#119](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/119)).** v0.12.1 removed the black LOADING frame that flashed when changing an item. The game still loads the chosen part synchronously: about 55-70 ms on a Mac, and 146-333 ms with both HD packs on Windows, where audio can underrun. A Windows comparison of no packs, Faithful only and both packs is the next step. Power Plant Story free-for-all pacing ([#109](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/109)) is addressed in v0.12.2.
-- **Created-fighter thumbnails saved blank before v0.12.1 ([#113](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/113), fixed in v0.12.1).** The game now generates the snapshot, but a profile saved with an empty one keeps it until a new snapshot: load Story, enter and leave the Wardrobe, then Crib, Exit, Yes to save. Only small snapshot surfaces (up to 64 KiB) are filled on the CPU; other render-to-texture cases still draw on the GPU only.
+- **Story shops pause briefly on an item change (#119).** v0.12.1 removed the black LOADING frame that flashed when changing an item. The game still loads the chosen part synchronously: about 55-70 ms on a Mac, and 146-333 ms with both HD packs on Windows, where audio can underrun. A Windows comparison of no packs, Faithful only and both packs is the next step. Power Plant Story free-for-all pacing (#109) is addressed in v0.12.2.
+- **Created-fighter thumbnails saved blank before v0.12.1 (#113, fixed in v0.12.1).** The game now generates the snapshot, but a profile saved with an empty one keeps it until a new snapshot: load Story, enter and leave the Wardrobe, then Crib, Exit, Yes to save. Only small snapshot surfaces (up to 64 KiB) are filled on the CPU; other render-to-texture cases still draw on the GPU only.
 - **Fire-escape transition gap (fixed in v0.12.2).** The black rectangle above the leading left scenery tile during the title-to-main-menu pan came from an empty first tile in the game's scenery object. v0.12.2 repairs that tile at every aspect ratio; `RECOMP_MENU_TRANSITION_REPAIR=0` turns the repair off.
 - **HD Widescreen Menus coverage.** Select User ID, Choose Teams and Choose Venue still use their original backgrounds and side-fill behavior. Their widescreen artwork is deferred to modpack 1.1. The menu pack is a default-channel download (`1.0.0`, using the accepted RC2 archive), separate from generated Recomp HD textures. The owner accepted Steam Deck playtesting; final macOS validation remains unconfirmed.
 
-- **Audio crackle (fixed in v0.9.3, [#30](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/30)).**
+- **Audio crackle (fixed in v0.9.3, #30).**
   Cutscenes, menus and matches crackled because the game's audio thread refilled its 50 ms
   mix buffer late and old audio played again. v0.9.3 fixes the causes in the port (a game
   clock that stood still for 12-18 ms at a time, late wake-ups and thread priority on macOS).
@@ -130,7 +130,7 @@ A v0.10.3 or earlier Mac setup downloaded with a browser stops at "Preparing set
 *"python3" Not Opened*, even after **Open Anyway** for Def Jam Setup. Setup unpacked its payload
 with the download's quarantine still attached, so Gatekeeper refused the bundled Python, which is
 signed ad hoc, not notarized
-([#59](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/59)). The v0.10.4 setup unpacks
+(#59). The v0.10.4 setup unpacks
 without the quarantine; use it. Workaround for an older setup: choose **Done**, drag Def Jam
 Setup to Applications, run
 `xattr -dr com.apple.quarantine "/Applications/Def Jam Setup.app"` in Terminal, then open it
@@ -169,7 +169,7 @@ At v0.9.0 the strict audio underrun check (`audio.dry_queue`) failed on the Mac,
 accepted pre-widescreen build, with gameplay and PCM checks passing. Since v0.9.3 the output
 device runs dry far less: none in a four-minute, four-fighter Terrordome fight (10 before), the
 `versus` check passes, and `combat` had one gap in the release regression. It is tracked in
-[#30](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/30).
+#30.
 A historical stream callback target `0x001E3C14` appeared during an HD capture
 and one widescreen-off crib boot. The same symptom was recorded before
 widescreen; focused 16:10 and crib repeats passed, but the cause is unresolved.
@@ -212,11 +212,11 @@ playable since v0.5.0, with the launcher and overlay since v0.6.2
 and passes most of the automated regression; Proton is untried. On the Steam Deck there was a
 little audio clipping or distortion (the old #11). It was the same crackle as on the other
 platforms, and the owner's play-test of v0.9.3 on the Deck found the audio significantly
-improved; tracked in [#30](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/30). A game started from inside
+improved; tracked in #30. A game started from inside
 a build container (podman or distrobox) has no sound, because the container has no PipeWire library;
 start it from the host. On macOS and Linux, vsync is only used on a display refreshing at a
 multiple of 60 Hz (60, 120, 180, 240), as on Windows: on a 75, 90, 100 or 144 Hz display the
-game paces itself and the picture can tear. On Windows such a display does not tear, but a 60 fps frame stays up for an uneven number of refreshes (two, then three, on 144 Hz), so fights can look choppy while the frame counter says 60 ([#67](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/67)); setting the display to 120 or 60 Hz avoids it. The game log's `[DISPLAY]` line records the refresh rate, the window mode and whether vsync paces the game. With variable refresh (G-Sync, FreeSync) in borderless full screen the frames are shown evenly; exclusive full screen is not needed for it ([#92](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/92)). Heavier picture settings (widescreen, render scale 3) made fight frames uneven there until the fix for [#102](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/102), which hands each frame to the graphics card before the game's 60 fps timer waits. Network play is not supported.
+game paces itself and the picture can tear. On Windows such a display does not tear, but a 60 fps frame stays up for an uneven number of refreshes (two, then three, on 144 Hz), so fights can look choppy while the frame counter says 60 (#67); setting the display to 120 or 60 Hz avoids it. The game log's `[DISPLAY]` line records the refresh rate, the window mode and whether vsync paces the game. With variable refresh (G-Sync, FreeSync) in borderless full screen the frames are shown evenly; exclusive full screen is not needed for it (#92). Heavier picture settings (widescreen, render scale 3) made fight frames uneven there until the fix for #102, which hands each frame to the graphics card before the game's 60 fps timer waits. Network play is not supported.
 
 See the [improvement backlog](04-improvement-backlog.md) and
 [rebase acceptance](research/toolkit-rebase-acceptance.md) for details.

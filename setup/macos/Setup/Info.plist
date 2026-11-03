@@ -4,7 +4,7 @@
 <dict>
     <key>CFBundleName</key><string>Def Jam Setup</string>
     <key>CFBundleDisplayName</key><string>Def Jam Setup</string>
-    <key>CFBundleIdentifier</key><string>io.github.vyanhursky.defjam-setup</string>
+    <key>CFBundleIdentifier</key><string>io.github.scikuvrc.defjam-setup</string>
     <key>CFBundleIconFile</key><string>defjam</string>
     <key>CFBundleExecutable</key><string>DefJamSetup</string>
     <key>CFBundlePackageType</key><string>APPL</string>

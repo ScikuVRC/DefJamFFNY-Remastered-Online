@@ -1,6 +1,6 @@
 # v0.13.0 RC — macOS observations, 2026-10-31
 
-Publication: the owner requested commit/push and PR comments. Commits `cfcc5e6` (Mac build fix and report) and `da8bcd7` (input confirmation and Windows correction) were pushed to `release/v0.13.0`. [Findings on PR #160](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/160#issuecomment-6553622809). No merge, tag or release publication. Earlier references to local-only state below describe the test-time state.
+Publication: the owner requested commit/push and PR comments. Commits `cfcc5e6` (Mac build fix and report) and `da8bcd7` (input confirmation and Windows correction) were pushed to `release/v0.13.0`. Findings on PR #160. No merge, tag or release publication. Earlier references to local-only state below describe the test-time state.
 
 ## Owner-requested input confirmation and Windows correction
 

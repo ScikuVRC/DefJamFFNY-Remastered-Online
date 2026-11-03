@@ -1,6 +1,6 @@
 # Late-input refresh source audit
 
-Scope: static disassembly of the FFNY recomp only; no runtime/build validation. Addresses below are guest addresses from `C:/Users/Vlad/code/defjam/analysis/tools_disasm_output/output/asm/text.asm`.
+Scope: static disassembly of the FFNY recomp only; no runtime/build validation. Addresses below are guest addresses from `C:/Users/the owner/code/defjam/analysis/tools_disasm_output/output/asm/text.asm`.
 
 ## Finding
 

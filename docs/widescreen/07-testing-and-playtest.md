@@ -47,7 +47,7 @@ $env:RECOMP_WS_ASPECT = "1.7778"; .\build\win-x64-release\defjam_recomp.exe
 
 ## 4. Release plan (updated 2026-10-13)
 
-Vlad requested the widescreen release after Windows, Linux and Mac validation,
+The owner requested the widescreen release after Windows, Linux and Mac validation,
 then chose **v0.9.0** because v0.8.0 already shipped the setup updater.
 Use the stable source-release workflow in `docs/releasing.md`; the widescreen
 feature remains labelled **beta** and **off by default**. This version change

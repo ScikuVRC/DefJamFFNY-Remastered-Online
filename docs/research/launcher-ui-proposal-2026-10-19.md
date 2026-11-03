@@ -1,6 +1,6 @@
 # Launcher redesign proposal — 2026-10-19
 
-Status: approved by Vlad on 2026-10-19 and implemented on `codex/launcher-redesign`. This preserves the proposal; see [implementation and playtest](launcher-ui-implementation-2026-10-19.md) for delivered behavior and evidence.
+Status: approved by the owner on 2026-10-19 and implemented on `codex/launcher-redesign`. This preserves the proposal; see [implementation and playtest](launcher-ui-implementation-2026-10-19.md) for delivered behavior and evidence.
 
 ## Recommendation
 

@@ -1,6 +1,6 @@
 # v0.12.1 Story portrait and Power Plant investigation
 
-2026-10-25. Visual issue: https://github.com/vyanhursky/DefJamFFNY-recomp/issues/108.
+2026-10-25. Visual issue: 
 
 ## Confirmed portrait cause and correction
 

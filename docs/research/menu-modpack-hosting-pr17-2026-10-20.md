@@ -1,6 +1,6 @@
 # Menu-only artwork pack hosting discussion — 2026-10-20
 
-**2026-10-21 follow-up:** Vlad chose Cloudflare R2, one new public JSON catalogue repository,
+**2026-10-21 follow-up:** the owner chose Cloudflare R2, one new public JSON catalogue repository,
 the helper initially in the game repository, and owner-approved GitHub Actions signing. The
 catalogue source foundation and protected environment now exist; account/domain, key provisioning,
 trusted publication and helper/launcher implementation remain. See the current
@@ -10,17 +10,17 @@ describe the state on 2026-10-20.
 
 ## Finding
 
-PR [#17](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/17) is an open, documentation-only proposal (D104, retitled after decision-number conflicts). Its described architecture is a signed `index.json` in a separate repository served by GitHub Pages; a separate `defjam-mods` helper performs fetch, resumable download, hash/size verification, install and rollback; the launcher would show available mods and updates while the game remains offline. Mod files are pinned by size and SHA-256. Submissions would arrive as reviewed pull requests and be scanned. The proposal says project hosting is for original content and recipe mods that generate from the player's own dump; derived assets should be linked from third-party hosts. It stages data mods before any code mods. PR #17 remains open and unscheduled. The API query `gh pr view 17 --comments` returned no comments; the PR diff and full design document were also retrieved from the PR head.
+PR #17 is an open, documentation-only proposal (D104, retitled after decision-number conflicts). Its described architecture is a signed `index.json` in a separate repository served by GitHub Pages; a separate `defjam-mods` helper performs fetch, resumable download, hash/size verification, install and rollback; the launcher would show available mods and updates while the game remains offline. Mod files are pinned by size and SHA-256. Submissions would arrive as reviewed pull requests and be scanned. The proposal says project hosting is for original content and recipe mods that generate from the player's own dump; derived assets should be linked from third-party hosts. It stages data mods before any code mods. PR #17 remains open and unscheduled. The API query `gh pr view 17 --comments` returned no comments; the PR diff and full design document were also retrieved from the PR head.
 
 Provider choice, catalogue operations and helper implementation remain open. PR17 is an unscheduled design; the current menu artifact is a concrete local candidate that can be distributed as one independently versioned download when ready.
 
 ## Exact decisions and proposal details from PR #17
 
-The proposal records Vlad’s 2026-10-11 answers as decisions for that design: derived game assets are only linked to third-party hosts; curation comes through reviewed pull requests plus security scans; data mods precede any code mods; network access belongs in a separate helper; hosting should be free or low-cost; updates are shown to the player and remain their choice; Faithful HD stays generated locally. These answers describe the intended general mod-system architecture.
+The proposal records the owner’s 2026-10-11 answers as decisions for that design: derived game assets are only linked to third-party hosts; curation comes through reviewed pull requests plus security scans; data mods precede any code mods; network access belongs in a separate helper; hosting should be free or low-cost; updates are shown to the player and remain their choice; Faithful HD stays generated locally. These answers describe the intended general mod-system architecture.
 
 The proposed implementation has three parts:
 
-- A separate `vyanhursky/DefJamFFNY-mods` repository serves a signed `index.json` through GitHub Pages. CI would compile the index from one JSON file per mod. Each version records compatibility, dependencies/conflicts, reviewed/revoked status, one or more download URLs, exact byte size and SHA-256. `linked`, `original`, and `recipe` are separate content classes. The helper pins the signing public key; index signing key custody is open.
+- A separate `the mod catalogue repository` repository serves a signed `index.json` through GitHub Pages. CI would compile the index from one JSON file per mod. Each version records compatibility, dependencies/conflicts, reviewed/revoked status, one or more download URLs, exact byte size and SHA-256. `linked`, `original`, and `recipe` are separate content classes. The helper pins the signing public key; index signing key custody is open.
 - `defjam-mods` is a headless CLI/JSON-progress helper, proposed in Python using Setup’s bundled runtime. It alone performs network requests: fetch/cache index, resumable `.part` downloads, verify size/hash, inspect/unpack to a temporary folder, install atomically, update, keep rollback copy, remove and run allow-listed recipes. Cached index supports offline use and never blocks Play. Launcher reads `state.json` for version and update badges.
 - Launcher Mods page lists, enables, orders, and offers updates. Game stays offline. A generalized schema-2 manifest would unify precedence for textures, whole guest files and entries inside `.viv`, with later enabled mods winning and the original as fallback. Existing `[textures] packs` remains a compatibility fallback; this loader/Mods page/helper are proposals, not current features.
 
@@ -47,7 +47,7 @@ No runtime archive loader is needed. Initially manual extraction works with the 
 a future helper can download, verify, stage and atomically install the same artifact.
 
 Host small version/checksum/compatibility metadata in the proposed separate GitHub Pages catalogue.
-Use an external mod host for the downloadable artwork, consistent with Vlad's recorded PR17 choice.
+Use an external mod host for the downloadable artwork, consistent with the owner's recorded PR17 choice.
 GameBanana is the mod-host option already named in that proposal; an owner-controlled object store
 with immutable versioned URLs is more convenient for an automated downloader. A mirror can be added
 without changing the package's pinned SHA-256. Do not replace an existing version in place.
@@ -85,8 +85,8 @@ there is no need to bundle that system into the menu artwork release.
 - [HD texture guide](../hd-textures.md): current folder format, ordering, limits and local-generation workflow.
 - [HD texture release packaging](hd-texture-release-packaging.md): measured Faithful HD corpus size, local-build rationale and prior GitHub release asset limit check.
 - [Menu/UI modpack handover](../menu-ui-modpack-handover.md): approved artwork scope, local pack export and integration gates.
-- [Menu wide first-release integration audit](https://github.com/vyanhursky/DefJam-Modding-Tools/blob/main/docs/menu-text-restoration.md): current wide/loading acceptance gaps and local component composition.
+- Menu wide first-release integration audit: current wide/loading acceptance gaps and local component composition.
 - [Menu UI playtest pack report](menu-ui-playtest-pack-2026-10-19.md): concrete local component order and macOS test evidence.
-- [PR #17](https://github.com/vyanhursky/DefJamFFNY-recomp/pull/17): prior design discussion and visible proposal.
+- PR #17: prior design discussion and visible proposal.
 
 No hosting account, public asset, code, package, or game installation was changed for this report.

@@ -7,7 +7,7 @@ game or game assets are distributed. Windows 11 x64 is the tested environment.
 ## Install with the Windows wizard
 
 Download `DefJamSetup-<version>-windows-x64.exe` from a release that includes
-setup on the [release page](https://github.com/vyanhursky/DefJamFFNY-recomp/releases).
+setup on the release page.
 The commands below use the v0.6.0 filename. For local testing, run the supplied
 preview build.
 
@@ -69,7 +69,7 @@ The [manifest](../config/dump-manifest.json) records the other checks.
 ## Clone and select data storage
 
 ```powershell
-git clone --recursive https://github.com/vyanhursky/DefJamFFNY-recomp.git
+git clone --recursive 
 cd DefJamFFNY-recomp
 python -m pip install pyxbe capstone pytest
 $env:DEFJAM_DATA = 'C:\Games\DJFFNY-data'

@@ -118,8 +118,8 @@ Every historical patch is accounted for; a patch may split across logical commit
 ## Committed candidate and acceptance gates
 
 All 108 patch rows now name concrete commits (15 logical topics atop upstream `1409a7d`).
-Vlad explicitly approved the reviewed source payload on 2026-10-03. The branch
-[`defjam/rebase-2026-10`](https://github.com/vyanhursky/xboxrecomp/tree/defjam/rebase-2026-10)
+The owner explicitly approved the reviewed source payload on 2026-10-03. The branch
+[`defjam/rebase-2026-10`](https://github.com/ScikuVRC/xboxrecomp/tree/defjam/rebase-2026-10)
 is published; its remote SHA was verified as `aa1a1b91dea9fd266acb3a3fe51dfcec3b2e6bbc`.
 CPU switch ownership continuation fix `c6140ae` extends `7f7eef9` to retain all 15 proven foreign
 arms at 001D5270; it also owns the runtime TLS tail-site definition. Vertex storage/adapter topic
@@ -135,7 +135,7 @@ Debug fight median/minimum is 120/66; the baseline Debug logs also contain early
 Extra Release routes are 5/5 with 13 reviewed captures (nine PNGs byte-identical). Fight audio
 observes zero drops/dry events; ten startup dry events remain in the report for listening review.
 Original saves rehash identical. See `toolkit-rebase-acceptance.md` for full evidence and limits.
-Vlad accepted the Release play-test on 2026-10-04: much better audio, smooth frames
+The owner accepted the Release play-test on 2026-10-04: much better audio, smooth frames
 and no observed graphical glitches (D56). Each upstream PR still needs separate approval.
 
 Parent pin/retirement commit `7068110` is published on private `toolkit-rebase`;

@@ -2,11 +2,11 @@
 
 The owner accepts the revised native Mods layout, with two final corrections:
 remove the mod-specific load-order recommendation and credit owned modpacks as
-**vyanhursky**. The first is implemented and rebuilt in the isolated preview;
-the second is in [catalogue PR2](https://github.com/vyanhursky/DefJamFFNY-mods/pull/2),
+**the maintainer**. The first is implemented and rebuilt in the isolated preview;
+the second is in catalogue PR2,
 commit`c8940e2`. It changes only the author field, not archive bytes or hashes.
 The source correction was merged and publication40100204475 succeeded. On
-2026-10-24 the real client verified signed live revision2 and authors=vyanhursky
+2026-10-24 the real client verified signed live revision2 and authors=the maintainer
 with unchanged project trust pins.
 
 ## Completed
@@ -39,10 +39,10 @@ with unchanged project trust pins.
    Mac/Linux launcher/overlay smoke. Computer-use tool failure prevented those
    additional automated native observations here; model tests are not visual QA.
 3. **Author metadata publication.** Review/merge catalogue PR2 and run a normal
-   signed catalogue publication, then verify the client displays vyanhursky.
+   signed catalogue publication, then verify the client displays the maintainer.
    The protected catalogue-release job requires owner approval. No signing key,
    cached signature or trust pin should be edited locally to fake the new credit.
-4. **Rendering-defect disposition.** [Issue95](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/95)
+4. **Rendering-defect disposition.** Issue95
    (HUD moves inward on pause) and the inherited fire-escape coverage gap are
    unresolved. Fix and validate them before stable release, or explicitly record
    an owner decision to ship them as known issues. The pause bug was requested as

@@ -1,7 +1,7 @@
 # Picture options: brightness and the venue vignette
 
-2026-10-18. Issues [#44](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/44) (brightness; its
-subtitle request is separate) and [#47](https://github.com/vyanhursky/DefJamFFNY-recomp/issues/47) (turn
+2026-10-18. Issues #44 (brightness; its
+subtitle request is separate) and #47 (turn
 off the vignette). Source: `src/patches/picture.c`, hooks in `src/recomp_manual.c`, settings
 `[display] brightness`, `vignette`, `vignette_strength` ([reference](../settings-reference.md)).
 
