@@ -107,12 +107,14 @@ bool mod_start(const std::string &command, const std::string &id) {
     auto source = fs::current_path();
     if (!fs::is_regular_file(source / "setup/mods.py", error)) source = fs::u8path(DEFJAM_MOD_SOURCE_DIR);
     auto script = source / "setup/mods.py";
-    auto python = source.parent_path() /
 #if defined(_WIN32)
-        "python/python.exe";
+    const char *bundled = "python/python.exe";
 #else
-        "python/bin/python3";
+    const char *bundled = "python/bin/python3";
 #endif
+    // Setup installs keep Python beside the source folder; a portable folder (Play.bat) keeps it inside.
+    auto python = source.parent_path() / bundled;
+    if (!fs::is_regular_file(python, error)) python = source / bundled;
     if (!fs::is_regular_file(script, error)) { status = "This installation has no mod helper; local mods still work."; return false; }
     std::string interpreter;
     if (fs::is_regular_file(python,error)) interpreter = path_utf8(python);

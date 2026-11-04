@@ -170,12 +170,11 @@ source-only local generation and remaining runtime assembly steps, see
 [release packaging](research/hd-texture-release-packaging.md). Reusable commands,
 model experiments and saved-review behavior are in [workflow guide](hd-texture-workflow.md).
 
-## Download independent menu mods through the launcher
+## Download HD Fighters and HD Widescreen Menus through the launcher
 
-The signed project catalogue is available in Mods. Refresh the catalogue,
-download/install a compatible version, then enable the pack and give it higher
-priority than Recomp HD in Load Order. Testing versions require an explicit opt-in.
-The menu pack is separate; Faithful generation stays optional. No manual mod ZIP extraction
-is needed. See [mod management](mod-manager.md) and the
-[original integration acceptance record](research/integrated-menu-launcher-rc-2026-10-23.md).
-That record describes the initial RC; current release behavior is documented above.
+Both packs are in the signed project catalogue: launcher > **Mods** > **Refresh catalogue**,
+then **Download and install** (or **Update available** when a newer version is published).
+Enable the pack and give it higher priority than Recomp HD in Load Order; restart the game.
+Testing versions require an explicit opt-in. Faithful generation stays optional. No manual
+mod ZIP extraction is needed. See [mod management](mod-manager.md), which also covers
+publishing a new pack version.

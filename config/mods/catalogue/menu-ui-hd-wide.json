@@ -1,0 +1,41 @@
+{
+  "id": "menu-ui-hd-wide",
+  "name": "HD Widescreen Menus",
+  "description": "Restored menu scenery and loading backgrounds for 4:3 through 32:9. Version 1.4 combines 1,343 approved reconstructed menu/UI texture mappings, including fighter select/loading banners, stencil headings, music labels, icons and a registered bitmap font page. Preserves all previous widescreen artwork and repaired joins. Lossless PNG optimization reduces download size without changing decoded pixels. Custom names and changing counters retain live font behavior. Faithful HD is optional.",
+  "authors": [
+    "Def Jam Remastered"
+  ],
+  "licence": "Derived game artwork; rights remain with their respective owners. The project source MIT licence does not cover this artwork.",
+  "homepage": "https://github.com/ScikuVRC/DefJamFFNY-recomp",
+  "revoked_versions": [],
+  "versions": [
+    {
+      "version": "1.4.0",
+      "channel": "stable",
+      "min_recomp": "0.12.1",
+      "capabilities": [
+        "textures-v1",
+        "wide-v1"
+      ],
+      "reviewed": "2026-11-04",
+      "depends": [],
+      "conflicts": [],
+      "load_after": [
+        "faithful-hd",
+        "faithful-hd-a512d2429f11-opacity",
+        "faithful-hd-a512d2429f11-channels"
+      ],
+      "archive": {
+        "urls": [
+          "https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/download/mods/menu-ui-hd-wide-1.4.0.zip"
+        ],
+        "size": 601895156,
+        "unpacked_size": 605772797,
+        "file_count": 1746,
+        "sha256": "f3d79f86a024b5786919ef2d6f38b1f599cb49a151d031b4a85023a5f480848d",
+        "root": "menu-ui-hd-wide-v1-4-0"
+      }
+    }
+  ],
+  "class": "linked"
+}

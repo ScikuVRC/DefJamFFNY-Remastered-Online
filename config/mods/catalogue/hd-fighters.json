@@ -1,0 +1,38 @@
+{
+  "id": "hd-fighters",
+  "name": "HD Fighters",
+  "description": "HD Fighters 1.0: 218 fixed-roster texture entries covering main outfits, in-engine Story states, injury maps and five shared inputs. Includes 200 Rich Original Detail restorations with source-palette matching and preserved material alpha, plus explicit original/Lanczos fallbacks. Created-player customization, menus and prerecorded video are separate. Faithful HD is optional.",
+  "authors": [
+    "Def Jam Remastered"
+  ],
+  "licence": "Derived game artwork; rights remain with their respective owners. The project source MIT licence does not cover this artwork.",
+  "homepage": "https://github.com/ScikuVRC/DefJamFFNY-recomp",
+  "revoked_versions": [],
+  "versions": [
+    {
+      "version": "1.0.0",
+      "channel": "stable",
+      "min_recomp": "0.12.1",
+      "capabilities": [
+        "textures-v1"
+      ],
+      "reviewed": "2026-11-04",
+      "depends": [],
+      "conflicts": [],
+      "load_after": [
+        "faithful-hd"
+      ],
+      "archive": {
+        "urls": [
+          "https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/download/mods/hd-fighters-1.0.0.zip"
+        ],
+        "size": 669255742,
+        "unpacked_size": 669201715,
+        "file_count": 221,
+        "sha256": "1bea1239abb8e6b86fff85ecb9fbd0d805df2b1567183e6e8a16b6f131725e0f",
+        "root": "hd-fighters-v1-0-0"
+      }
+    }
+  ],
+  "class": "linked"
+}

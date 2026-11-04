@@ -10,8 +10,9 @@ INI list, later entries win; the launcher handles that conversion. Downloaded pa
 separate from locally generated Recomp HD (Faithful HD components). Give HD Widescreen
 Menus higher priority than that optional baseline. Installing a pack does not enable it.
 
-The launcher starts `setup/mods.py` with the installed version's retained Python.
-It passes argv directly, polls a bounded atomic INI projection and stays responsive.
+The launcher starts `setup/mods.py` with the installed version's retained Python
+(`python/` beside the source folder in a Setup install, or inside the game folder in a
+portable copy started with `Play.bat`). It passes argv directly, polls a bounded atomic INI projection and stays responsive.
 The game executable itself makes no network requests. Developer checkouts may set
 `DEFJAM_MOD_PYTHON` to a Python with Pillow and cryptography; broken installed Python
 must be repaired rather than silently using an unrelated system interpreter.
@@ -29,7 +30,6 @@ It affects catalogue choices and installs for this launcher session; stable-only
 is the default. Turning it off does not remove an installed testing version.
 The CLI equivalent is `--prerelease` for status, refresh and install.
 
-These commands are examples; catalogue publication is tracked separately.
 `--capability wide-v1` is appropriate only for a runtime with the wide-layer loader.
 The launcher derives that capability from the toolkit compiled into the game.
 Released builds with the wide-layer loader advertise it, allowing compatible wide
@@ -70,11 +70,10 @@ managed/rollback folders. Runtime validation still owns comparison of replacemen
 scale/layout against a source texture seen in the game. Never treat a validator
 pass as proof that a visual mapping is correct.
 
-Catalogue source is DefJamFFNY-mods.
-Publishing checks append-only history and every mirror, validates packages and
-runs ClamAV in a job without signing credentials. Only a separate owner-approved
-job signs metadata matching the reviewed source. Artwork stays on external hosts;
-no artwork, private keys or executable game code enter either public source tree.
+The catalogue is `catalogue.json` (and its signature, `catalogue.json.sig`) on the
+[`mods` release](https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/tag/mods) of this
+repository, beside the pack zips it lists. Its records are kept in
+`config/mods/catalogue/<id>.json`; the zips and the signing key are not in the repository.
 
 ## File mods
 
@@ -107,10 +106,33 @@ Online, every player needs the same file packs: a pack that changes models or ga
 data plays a different fight and the games part (netplay compares the program and
 `default.xbe` only).
 
-## Catalogue operations
+## Publishing a pack or a new version
 
-The protected publisher issues metadata with a30-day expiry. New installs and
-updates require fresh verified metadata; installed packs and ordinary offline
-Play remain available. Republish through the reviewed main workflow and approve
-the catalogue-release environment before expiry, even when package versions have
-not changed. Revisions increase and existing package records stay immutable.
+`scripts/publish-mods.py` does it, with the GitHub CLI (`gh`, signed in to an account that
+can write releases) and Python's `cryptography` module. The zips go in a folder of your
+choice (`--store` or `DEFJAM_MOD_STORE`); the private signing key is a file that stays off
+git (`--key` or `DEFJAM_CATALOGUE_KEY`). Its public half is in
+`config/mods/catalogue-keys.json`; a launcher only trusts catalogues signed with it.
+
+```powershell
+$env:DEFJAM_MOD_STORE = 'D:\DefJam\mod-releases'
+$env:DEFJAM_CATALOGUE_KEY = 'D:\DefJam\keys\mod-catalogue.ed25519'
+# A new version of a pack, from its folder (manifest.ini and its files):
+python scripts/publish-mods.py add hd-fighters 1.1.0 --folder D:\DefJam\packs\hd-fighters
+# A new pack also needs --name and --description; --min-recomp and --load-after are optional.
+python scripts/publish-mods.py publish --dry-run
+python scripts/publish-mods.py publish
+```
+
+`add` zips the folder (deterministically, under one top folder), unpacks it exactly as the
+launcher will to check it installs, and appends the version to the pack's record with its
+size, SHA-256 and download address. Commit the changed record. `publish` uploads the zips the
+release does not have yet, then signs a new catalogue revision and uploads it. Players see
+**Update available** in Mods after **Refresh catalogue**; installed versions are never
+replaced without that click, and **Restore previous version** brings back the one before.
+
+Each catalogue revision is good for five years; republish (`publish` alone) before then,
+or Refresh and new installs stop working (installed packs keep playing). Revisions only go
+up; a launcher refuses an older one than it has seen. Never edit or replace a published
+version's zip: publish a new version instead. Losing the signing key means a new key and a
+game update that trusts it.

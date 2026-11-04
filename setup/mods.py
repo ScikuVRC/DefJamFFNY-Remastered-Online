@@ -30,9 +30,9 @@ import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mod_catalogue as contract
 
-# No project catalogue is published: a project that publishes one puts its address here and its
-# signing key in config/mods/catalogue-keys.json. Without a key, Refresh says so; local mods still work.
-CATALOGUE_URL = ''
+# The project catalogue: an asset of this repository's "mods" release, signed with the key in
+# config/mods/catalogue-keys.json (scripts/publish-mods.py publishes it).
+CATALOGUE_URL = 'https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/download/mods/catalogue.json'
 KEYS = Path(__file__).resolve().parents[1] / 'config/mods/catalogue-keys.json'
 MAX_INDEX = 8 * 1024**2
 MAX_FILE = 512 * 1024**2
@@ -632,7 +632,7 @@ class Manager:
 
     def view(self):
         state = self.state()
-        rows, info = [], 'Catalogue has not been published yet; local mods remain available'
+        rows, info = [], 'Press Refresh catalogue to see the packs you can download'
         try:
             index = self.trusted()
             stale = contract.timestamp(index['expires']) <= dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
