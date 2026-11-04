@@ -9,11 +9,12 @@ Issue numbers below (#98 and so on) are from the original project's tracker.
 
 - **Online play uses TCP.** A lost packet stalls both games until it is resent; on a poor
   connection the fight can hitch.
-- **Joining over the internet** has been checked only from inside the host's own network: the
-  router opened the port by UPnP, a connection to the public address reached the lobby, and the
-  port was closed again. Nobody has joined from outside yet. If a friend cannot join, read the
-  lobby's router line; forward TCP port 7777 by hand, or use a virtual LAN (such as Radmin VPN)
-  and join the host's address on it.
+- **Joining over the internet**: a friend from another network played matches with the
+  version before v0.14.0, and the fights ran smoothly. v0.14.0's automatic port opening
+  (UPnP) was checked from inside the host's network only (the router opened the port, a
+  connection to the public address reached the lobby, the port was closed again). If a friend
+  cannot join, read the lobby's router line; forward TCP port 7777 by hand, or use a virtual
+  LAN (such as Radmin VPN) and join the host's address on it.
 - **The background crowd can differ** between the players' screens. The fighters and the fight
   stay in step (the games compare the fight state every second).
 - **Created fighters online** have not been tried with two players whose profiles share a name,
