@@ -21,6 +21,7 @@ extern uint32_t g_eax, g_ecx, g_edx, g_esp, g_ebx, g_esi, g_edi, g_ebp;
 extern int g_fp_top;
 #define MEM8(a)  (*(volatile uint8_t *)(memory + (a)))
 #define MEM32(a) (*(volatile uint32_t *)(memory + (a)))
+#define MEMF(a)  (*(volatile float *)(memory + (a)))
 '''
 
 DRIVER = r'''
@@ -48,6 +49,8 @@ void sub_00068BA0(void)
     g_eax = 0x77; g_ecx = 0xDEAD; g_edx = 0xBEEF; g_esi = 1;
     g_esp += 4;
 }
+/* The spectators' own update, which crowd_control.c wraps; these tests do not reach it. */
+void sub_00081170_gen(void) {}
 /* dev_module.c's hand-off, which the scene launcher calls when a scene ends. */
 void dev_module_scene_ended(void) { fprintf(stderr, "[stub] scene ended\n"); }
 void dev_module_again(void) { fprintf(stderr, "[stub] again\n"); }
@@ -143,14 +146,16 @@ def tool(tmp_path_factory):
     driver.write_text(DRIVER.replace('MEM8(0x2E3488 % sizeof memory) = 0;', 'MEM8(0x2E3488) = 1;'), encoding='utf-8')
     sources = [str(driver), str(ROOT / 'src/hooks/fe_inject.c'), str(ROOT / 'src/hooks/crowd_control.c'),
                str(ROOT / 'src/hooks/scene_launcher.c'),
-               str(ROOT / 'src/hooks/recorder.c')]
+               str(ROOT / 'src/hooks/recorder.c'), str(ROOT / 'tests/unit/lockstep_stub.c')]
+    # crowd_control.c reads the shared seed (lockstep.c, stubbed) and includes src/host.h.
     if os.name == 'nt':
         exe = folder / 'controls.exe'
-        cmd = [cc, '/nologo', '/TC', '/I' + str(folder), '/I' + str(ROOT / 'src/hooks')] + sources + ['/Fe:' + str(exe)]
+        cmd = [cc, '/nologo', '/TC', '/I' + str(folder), '/I' + str(ROOT / 'src/hooks'),
+               '/I' + str(ROOT / 'src')] + sources + ['/Fe:' + str(exe)]
     else:
         exe = folder / 'controls'
-        cmd = [cc, '-std=gnu11', '-I' + str(folder), '-I' + str(ROOT / 'src/hooks')] + sources + ['-o', str(exe),
-                                                                                              '-lpthread', '-lm']
+        cmd = [cc, '-std=gnu11', '-I' + str(folder), '-I' + str(ROOT / 'src/hooks'),
+               '-I' + str(ROOT / 'src')] + sources + ['-o', str(exe), '-lpthread', '-lm']
     r = subprocess.run(cmd, cwd=folder, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     return exe
@@ -187,7 +192,8 @@ def test_crowd_hold_and_reseed(tool):
     assert 'seed: this=4096 high=99 low=24301' in out       # base seed, 0x5EED for the first generator
     assert out[-1] == 'after step gate=1 esp=30000 eax=42'  # gate put back, registers as they were
     assert out.count('seed: this=4096 high=99 low=24301') == 1
-    assert '"updates_in_window":5,"held":true,"reseeded":1' in err
+    assert ('"updates_in_window":5,"held":true,"spectator_updates":0,"spect_held":false,"reseeded":1'
+            in err)                                         # spect is off: no spectator updates held
 
 
 def test_crowd_controls_are_off_by_default(tool):

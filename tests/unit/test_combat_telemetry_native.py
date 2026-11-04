@@ -120,6 +120,7 @@ def telemetry_tool(tmp_path_factory):
     result = subprocess.run([compiler, '/nologo', '/O2', '/TC', '/I' + str(folder), '/I' + str(ROOT / 'src/hooks'),
                              '/I' + str(ROOT / 'src'), str(driver), str(ROOT / 'src/hooks/test_observations.c'),
                              str(ROOT / 'src/hooks/test_telemetry.c'), str(ROOT / 'tests/unit/input_latency_stub.c'),
+                             str(ROOT / 'tests/unit/lockstep_stub.c'), str(ROOT / 'tests/unit/crowd_stub.c'),
                              str(ROOT / 'src/hooks/recorder.c'), '/Fe:' + str(exe)],
                             cwd=folder, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
