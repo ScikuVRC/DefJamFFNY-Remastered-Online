@@ -433,3 +433,19 @@ def test_runtime_refuses_xbe_code_changes(runtime_tool, dump):
     (pack / 'language.ini').write_text('\n'.join(ini) + '\n')
     lines, err = run_runtime(runtime_tool, tmp / 'data', game, RECOMP_LANGUAGE_PACK='xx-test')
     assert 'xbe LOADING' in lines and 'outside .rdata/.data' in err
+
+
+def test_game_start_up_calls_language_start():
+    # The runtime tests above call pc_language_start themselves, so they cannot notice when the
+    # game's own start-up stops calling it (a merge dropped it once and packs silently did nothing).
+    text = (ROOT / 'src/hooks/pc_settings.c').read_text(encoding='utf-8')
+    assert 'pc_language_start(have_root ? root : NULL, "game");' in text
+
+
+def test_the_pack_name_is_not_copied_onto_itself():
+    # snprintf(folder, ..., "%s", trim(folder)) empties the name on glibc, so no language mod loaded on
+    # Linux. The runtime tests see that when built with the bundled Zig compiler, but they are skipped on
+    # a machine with no cc, so check the source too.
+    text = (ROOT / 'src/hooks/pc_language.c').read_text(encoding='utf-8')
+    assert 'trim(folder));' not in text.replace('const char *name = trim(folder);', '')
+    assert 'memmove(folder, name, strlen(name) + 1);' in text
