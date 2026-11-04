@@ -17,14 +17,23 @@ Issue numbers below (#98 and so on) are from the original project's tracker.
   LAN (such as Radmin VPN) and join the host's address on it.
 - **The background crowd can differ** between the players' screens. The fighters and the fight
   stay in step (the games compare the fight state every second).
-- **Created fighters online** whose parts come from a mod have not been tried. Two players whose
-  profiles share a name both bring their own (the other's shows as MARC2 and so on on each
-  screen); checked with two games on one PC, a fight of 13,000 steps in sync.
-- **A loading stall** happened once going into Story from the launcher's Continue; twelve
-  later starts were fine.
-- **Setup from this repository**: v0.14.0 is its first release here. A Clean Update from it to a
-  later version, and the HD packs from the new catalogue on a fresh install, have not been run
-  yet.
+- **Created fighters online**: two players whose profiles share a name both bring their own
+  (the other's shows as MARC2 and so on on each screen); checked with two games on one PC, a
+  fight of 13,000 steps in sync. HD texture packs on one player's game only change nothing in
+  the fight: created fighters on both sides, HD Fighters and HD Widescreen Menus on the host
+  only, 18,000 steps in sync. File mods (models, game data) must be the same for everyone.
+- **A start-up hang on the LOADING screen** (fixed after v0.14.1; seen with HD packs on, and
+  with two games on one PC): the main thread, raised to priority 21 by Windows while it spins
+  in Direct3D's wait for buffer space (`sub_0021EC50`), kept the game's other threads, which
+  share its one core, from ever running. A watcher now lets a thread starved there for 600 ms
+  run on another core until it has had a turn (`kernel_starve.c` in the toolkit;
+  `RECOMP_STARVE_WATCH=0` turns it off). With it the two-game start that hung twice in a row
+  reached the fight, in sync to the end; one game with both HD packs needed it twice during
+  the start-up load and never in the fight. The loading stall once seen going into Story from
+  the launcher's Continue was probably the same thing.
+- **Setup from this repository**: v0.14.0's Setup installed into a new folder from the release,
+  and HD Fighters installed there from the mod catalogue. A Clean Update from one version to
+  the next has not been run yet.
 
 ## v0.13.0 release qualifications
 
