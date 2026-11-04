@@ -133,6 +133,8 @@ def tool(tmp_path_factory):
     cc = shutil.which('cl') if os.name == 'nt' else (shutil.which('cc') or shutil.which('gcc') or shutil.which('clang'))
     if not cc:
         pytest.skip('no C compiler')
+    if os.name != 'nt' and not (ROOT / 'tools/xboxrecomp/src/platform/win32_compat.h').is_file():
+        pytest.skip('src/host.h needs the toolkit checkout (tools/xboxrecomp) off Windows')
     folder = tmp_path_factory.mktemp('scenario-controls')
     (folder / 'recomp/gen').mkdir(parents=True)
     # 0x2E3488 is outside the fake memory: the test maps the crowd's gate into it.
