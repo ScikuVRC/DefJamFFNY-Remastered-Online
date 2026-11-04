@@ -36,10 +36,12 @@ void defjam_skip_intro_enter(void)
     selected = 1;
     /* Read the effective file/environment setting after the launcher. Subsequent
      * overlay edits affect the next process, never an in-progress Story/movie.
-     * An online match skips it whatever the setting (netplay_quick_start). */
+     * An online match skips it whatever the setting (netplay_quick_start), and so does a
+     * launcher tile that goes straight to a menu (launcher_start_target). */
     {
         extern int netplay_quick_start(void);
-        if (!recomp_settings_get("debug", "skip_intro", 0) && !netplay_quick_start())
+        extern int launcher_start_target(void);
+        if (!recomp_settings_get("debug", "skip_intro", 0) && !netplay_quick_start() && !launcher_start_target())
             return;
     }
     if (MEM32(frontend + 0x9C) != 0) {

@@ -29,6 +29,9 @@ static int unlock_calls;
 void defjam_skip_intro_enter(void);
 void defjam_unlock_all_on_funccall(const char *text);
 recomp_func_t recomp_lookup(uint32_t va) { (void)va; return 0; }
+/* Neither an online match nor a launcher tile asked for a quick start. */
+int netplay_quick_start(void) { return 0; }
+int launcher_start_target(void) { return 0; }
 void sub_000158F0(void) { unlock_calls++; g_esp += 4; }
 void sub_00055640(void)
 {

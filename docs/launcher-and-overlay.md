@@ -5,16 +5,37 @@ mouse, keyboard or gamepad on Windows, macOS and Linux, including the Steam Deck
 
 ## Home and Advanced
 
-![Launcher Home with quick settings and utility buttons](media/launcher.png)
+The launcher opens before the game loads. Home fills the window like a console's home screen: the
+city drifting behind everything, the logo, a row of tiles along the bottom, and above them, large,
+what the lit tile does, with the profile's own created fighter beside it for Continue and Profiles.
 
-The launcher opens before the game loads. Home has a quiet brickwork/paper design, a large **Play**
-button and the common choices: display mode, window size, picture shape, render scale, VSync and local
-HD textures. The live controller summary has **Configure controls**. **Quit** or closing the window
-exits without starting the game. Startup-only settings apply to this launch when you press Play.
+| Tile | What it does |
+|---|---|
+| **Continue story** | Starts the game and goes straight to the profile's crib: the intro is skipped, and the title screen, the main menu and the Select User ID list are pressed through for you. Shows the profile's face, Story %, Story time, cash and when it was last saved, read from the save. With no profile it is **New story** and stops on Select User ID, where you create one. |
+| **Battle** | Straight to Choose Match Type. Each player picks a user ID after it, on the game's own screen. |
+| **Online** | Host or join an online match ([Online play](netplay.md)). |
+| **Main menu** | The game's own main menu, without the intro. |
+| **Profiles** | Choose whose story Continue picks up (`[launcher] profile`; empty means the most recently saved). |
+| **Mods** | The texture and file mod page. |
 
-**Advanced** opens all settings in the same window. **Mods** opens its texture-pack page directly.
-**Back to launcher**, Escape or the pad's B button returns to Home, except while capturing a binding
-or using a popup. **Open Logs**, **Open Folder** and **Update / Repair** are directly available on Home.
+The pad stays live while those screens are pressed through, and takes over where the presses end.
+Left and right move along the tiles, A or Enter takes one, START opens the settings and B or Escape
+asks before quitting; **Controls**, **Settings** and **Quit** are also at the top right. Startup-only
+settings apply to this launch when the game starts.
+
+The art is optional and comes from your own copy: `cover_city` and `cover_logo` (`.png` or `.jpg`) in
+`<data folder>/launcher`. Without them Home draws dark stripes and a text logo. The profiles' pictures
+and figures are read from the saves. Nothing from the game is in this repository.
+
+![The compact Home, for small windows and large text](media/launcher.png)
+
+In a window under about 760 by 470 points (more at large text sizes) Home is the compact one above:
+a **Play** button, which starts the game as before, and the common choices: display mode, window size,
+picture shape, render scale, VSync and local HD textures, with **Configure controls**.
+
+**Settings** (Advanced) opens all settings in the same window. **Mods** opens its texture-pack page
+directly. **Back to launcher**, Escape or the pad's B button returns to Home, except while capturing a
+binding or using a popup. **Open Logs**, **Open Folder** and **Update / Repair** are on the compact Home.
 Enlarged text/narrow windows use a compact title and a category selector. The body scrolls; footer
 actions remain available. Short windows with large text use a compact footer; the skip preference
 remains in Interface. Display DPI and the existing text/control size setting still apply.
@@ -118,13 +139,16 @@ a wide canvas are tracked separately from the two live picture shapes.
 D-pad/left stick moves, A activates, B goes back/closes, shoulders switch Advanced categories, triggers
 adjust sliders faster. Navigation uses the first pad to press a button, independently of the game's own
 mapping. Esc cancels binding capture. Returning Home restores focus to its originating utility action.
+On Home, START opens the settings and B asks before quitting.
 
 ## Implementation and test hooks
 
 Dear ImGui 1.92.9b is fetched at its pinned hash (MIT, `thirdparty/imgui-LICENSE.txt`). Shared pages,
-settings controls and overlay are in `src/hooks/pc_ui.cpp`; Home is `pc_launcher_home.cpp`, palette/fonts
-and procedural geometry are `pc_ui_theme.cpp`, paths/setup handoff are `pc_ui_actions.cpp`, and the
-renderer-independent inventory/timing helpers are `pc_ui_model.h`. No new artwork or font binary is used.
+settings controls and overlay are in `src/hooks/pc_ui.cpp`; Home is `pc_launcher_home.cpp`, the profiles
+it shows `pc_launcher_profiles.cpp`, and the tiles' pressed-through starts `launcher_start.c`, which
+an online match's start shares; palette/fonts and procedural geometry are `pc_ui_theme.cpp`, paths/setup
+handoff are `pc_ui_actions.cpp`, and the renderer-independent inventory/timing helpers are
+`pc_ui_model.h`. No new artwork or font binary is used.
 
 | | Windows | macOS/Linux |
 |---|---|---|
@@ -142,7 +166,8 @@ Off-by-default test hooks:
 | `RECOMP_HOST_SCRIPT` | Game window: `<ms>:key:<SDL name>`, `click`, `move`, `text`; times from opening |
 | `RECOMP_INPUT_VIRTUAL_PADS`, `RECOMP_INPUT_VIRTUAL_CHORD_MS` | SDL virtual pad tests, including overlay stick-click/B paths ([input guide](10-input.md)) |
 
-Named UI targets include Advanced, Mods, Configure, Back, all six categories, Play, Quit, SetupOpen and
+Named UI targets include Advanced, Mods, Configure, Back, all six categories, Play, Quit, SetupOpen,
+Home's tiles (Continue, Battle, OnlineTile, MainMenu, Profiles, Mods), `Profile:<name>` in the picker, and
 setting keys such as `display.brightness` or `debug.unlock_all`, plus `pack.<folder>` and
 `pack.earlier.<folder>` / `pack.later.<folder>`. Targets scroll into view, then receive
 real SDL press/release events. A missing target is reported; tests do not change a setting directly.

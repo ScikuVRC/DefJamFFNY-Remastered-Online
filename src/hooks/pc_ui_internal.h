@@ -56,6 +56,8 @@ struct UiResult {
     bool play = false;      // launcher: the Play button
     bool setup = false;     // open setup after launcher teardown
     bool leave = false;     // launcher: Quit; overlay: Close
+    int start = 0;          // launcher, with play: where the game starts (launcher_start.h)
+    int user = -1;          // and with which profile
 };
 
 // A fresh ImGui context with the port's fonts and style, scaled for `window`'s display.

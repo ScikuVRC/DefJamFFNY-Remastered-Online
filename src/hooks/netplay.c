@@ -73,6 +73,7 @@ typedef int sock_t;
 #include <stdlib.h>
 #include <string.h>
 
+#include "launcher_start.h"
 #include "netplay.h"
 #include "recomp/gen/recomp_types.h"
 #include "test_observations.h"
@@ -1687,15 +1688,12 @@ int netplay_startup(void)
     /* Straight to the match: the intro is skipped (skip_intro.c asks netplay_quick_start),
      * and from the title screen Start and A are pressed for the player every second --
      * Start once the title takes it (about 7 s in), A for the memory-card notice -- until
-     * the main menu, where the match's commands take over. The player's own pad stays
-     * live (RECOMP_PAD_HOST). A test's own pad script is left as it is. */
+     * the main menu, where the match's commands take over (launcher_title_presses). The
+     * player's own pad stays live (RECOMP_PAD_HOST). A test's own pad script is left as
+     * it is. */
     if (!getenv("RECOMP_PAD_SCRIPT")) {
         char script[1400];
-        size_t n = 0;
-        for (i = 0; i < 40 && n < sizeof script - 64; i++)
-            n += (size_t)snprintf(script + n, sizeof script - n, "%s%s:%d:%d.3", i ? "," : "",
-                                  i % 2 ? "a" : "start", 1 + i, 1 + i);
-        snprintf(script + n, sizeof script - n, ",@getscreeninfo(intmain/mainmenu");
+        launcher_title_presses(script, sizeof script);
         put_env("RECOMP_SCRIPT_ANCHOR", "getscreeninfo(intmain/prestart");
         put_env("RECOMP_PAD_SCRIPT", script);
         put_env("RECOMP_PAD_SCRIPT_FORMAT", "seconds");     /* name:from:to, in seconds */

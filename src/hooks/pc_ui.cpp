@@ -1804,6 +1804,71 @@ static void ui_online_match(UiResult &result, float width, float scale)
 }
 static std::string g_home_return = "Advanced";
 static const char *page_names[] = {"Display", "Controls", "Mods", "Interface", "Diagnostics", "Maintenance"};
+
+// Where a Home's button leads: a settings page, Setup, the online lobby, or the game.
+static void home_routes(const UiHomeResult &home, UiResult &result)
+{
+    result.play = home.play && !pcui::mod_busy() && !pcui::mod_recovery_needed();
+    result.start = home.start;
+    result.user = home.user;
+    if (home.route >= 1 && home.route <= 3)
+    {
+        g_advanced = true;
+        ImGui::SetScrollY(0);
+        g_page = home.route == 2 ? 1 : home.route == 3 ? 2 : g_page;
+        g_select_page = true;
+        g_home_return = home.route == 2 ? "Configure" : home.route == 3 ? "Mods" : "Advanced";
+    }
+    if (home.route == 4)
+        g_setup_request = true;
+    if (home.route == 5)
+        g_online_request = true;
+}
+
+// The launcher's own dialogs: Update / Repair, and the online lobby.
+static void launcher_dialogs(UiResult &result, float width, float height, float scale)
+{
+    if (g_setup_request)
+    {
+        ImGui::OpenPopup("Update / Repair");
+        g_setup_request = false;
+    }
+    if (g_online_request)
+    {
+        ImGui::OpenPopup("Online Match");
+        g_online_request = false;
+    }
+    ui_online_match(result, width, scale);
+    ImGui::SetNextWindowSizeConstraints(
+        ImVec2(0, 0), ImVec2(std::max(200.0f, width - 32 * scale), std::max(160.0f, height - 32 * scale)));
+    if (ImGui::BeginPopupModal("Update / Repair", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::PushTextWrapPos(std::min(ImGui::GetFontSize() * 34, std::max(120.0f, width - 100 * scale)));
+        ImGui::TextWrapped("Open Def Jam Setup to choose a release, update or repair. The launcher will "
+                           "close. No installation starts until you choose it in the wizard.");
+        ImGui::TextWrapped("Setup: %s",
+                           pcui::setup_path().empty() ? "not selected" : pcui::setup_path().c_str());
+        if (ImGui::Button("Choose Setup..."))
+            pcui::setup_choose();
+        if (width > 650 * scale)
+            ImGui::SameLine();
+        if (ImGui::Button("Download Setup"))
+            pcui::open_path("https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/latest");
+        ImGui::BeginDisabled(!pcui::setup_ready());
+        if (ImGui::Button("Open Setup"))
+        {
+            result.setup = true;
+            result.leave = true;
+            ImGui::CloseCurrentPopup();
+        }
+        ui_target("SetupOpen");
+        ImGui::EndDisabled();
+        if (ImGui::Button("Cancel"))
+            ImGui::CloseCurrentPopup();
+        ImGui::PopTextWrapPos();
+        ImGui::EndPopup();
+    }
+}
 static void controls_page()
 {
     if (ImGui::CollapsingHeader("Players, devices and feel", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1842,6 +1907,17 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, padding);
     ImGui::Begin("##settings", nullptr, flags);
     ImGui::PopStyleVar();
+    if (mode == UI_LAUNCHER && !g_advanced && ui_launcher_cinematic_fits(width, height))
+    {
+        // The full-window Home: no header or footer, its own buttons and tiles do their work.
+        auto home = ui_launcher_cinematic(g_return_focus ? g_home_return.c_str() : nullptr);
+        g_return_focus = false;
+        home_routes(home, result);
+        result.leave = home.quit;
+        launcher_dialogs(result, width, height, scale);
+        ImGui::End();
+        return result;
+    }
     const char *brand = tight ? "DEF JAM" : "DEF JAM RECOMPILED";
     float header_width = ImGui::CalcTextSize(brand).x +
                          ImGui::CalcTextSize("/ v" DEFJAM_VERSION).x + ImGui::GetStyle().ItemSpacing.x;
@@ -1861,19 +1937,7 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
         auto home = ui_launcher_home(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y,
                                      g_return_focus ? g_home_return.c_str() : nullptr);
         g_return_focus = false;
-        result.play = home.play && !pcui::mod_busy() && !pcui::mod_recovery_needed();
-        if (home.route >= 1 && home.route <= 3)
-        {
-            g_advanced = true;
-            ImGui::SetScrollY(0);
-            g_page = home.route == 2 ? 1 : home.route == 3 ? 2 : g_page;
-            g_select_page = true;
-            g_home_return = home.route == 2 ? "Configure" : home.route == 3 ? "Mods" : "Advanced";
-        }
-        if (home.route == 4)
-            g_setup_request = true;
-        if (home.route == 5)
-            g_online_request = true;
+        home_routes(home, result);
     }
     else
     {
@@ -2048,46 +2112,7 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
         result.play = false;
         ImGui::TextWrapped("%s", pcui::mod_status().c_str());
     }
-    if (g_setup_request)
-    {
-        ImGui::OpenPopup("Update / Repair");
-        g_setup_request = false;
-    }
-    if (g_online_request)
-    {
-        ImGui::OpenPopup("Online Match");
-        g_online_request = false;
-    }
-    ui_online_match(result, width, scale);
-    ImGui::SetNextWindowSizeConstraints(
-        ImVec2(0, 0), ImVec2(std::max(200.0f, width - 32 * scale), std::max(160.0f, height - 32 * scale)));
-    if (ImGui::BeginPopupModal("Update / Repair", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::PushTextWrapPos(std::min(ImGui::GetFontSize() * 34, std::max(120.0f, width - 100 * scale)));
-        ImGui::TextWrapped("Open Def Jam Setup to choose a release, update or repair. The launcher will "
-                           "close. No installation starts until you choose it in the wizard.");
-        ImGui::TextWrapped("Setup: %s",
-                           pcui::setup_path().empty() ? "not selected" : pcui::setup_path().c_str());
-        if (ImGui::Button("Choose Setup..."))
-            pcui::setup_choose();
-        if (width > 650 * scale)
-            ImGui::SameLine();
-        if (ImGui::Button("Download Setup"))
-            pcui::open_path("https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/latest");
-        ImGui::BeginDisabled(!pcui::setup_ready());
-        if (ImGui::Button("Open Setup"))
-        {
-            result.setup = true;
-            result.leave = true;
-            ImGui::CloseCurrentPopup();
-        }
-        ui_target("SetupOpen");
-        ImGui::EndDisabled();
-        if (ImGui::Button("Cancel"))
-            ImGui::CloseCurrentPopup();
-        ImGui::PopTextWrapPos();
-        ImGui::EndPopup();
-    }
+    launcher_dialogs(result, width, height, scale);
     ImGui::End();
     return result;
 }

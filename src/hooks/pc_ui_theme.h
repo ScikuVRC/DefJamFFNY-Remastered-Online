@@ -16,6 +16,9 @@ bool slider_int(const char *label, int *value, int minimum, int maximum);
 void brickwork(ImVec2 start, ImVec2 size, float scale);
 void poster(ImVec2 start, ImVec2 size, float scale);
 void heading(const char *text, float size);
+// The face headings use (Impact), or the current font when it is not installed: for drawing with
+// ImDrawList::AddText at a size in pixels.
+ImFont *display();
 void load_display_font();
 bool play_button(const char *text, ImVec2 size, float font_size = 30.0f);
 // Display-font button: filled with `fill`, or outlined in the text colour when `outline` is set.

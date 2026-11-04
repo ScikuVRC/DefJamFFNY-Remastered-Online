@@ -33,6 +33,7 @@ extern "C" {
 #include "recomp_settings.h"
 #include "input_host.h"
 }
+#include "launcher_start.h"
 #include "pc_input.h"
 #include "pc_settings.h"
 #include "pc_ui.h"
@@ -154,6 +155,7 @@ void launcher_main(void *arg)
     unsigned frames = 0;
     bool open_setup = false;
     bool done = false;
+    int target = LAUNCHER_START_TITLE, user = -1;
     std::string shot_file;
     *result = 1;
     while (!done) {
@@ -285,7 +287,7 @@ void launcher_main(void *arg)
         SDL_RenderPresent(renderer);
         frames++;
         SDL_Delay(1);
-        if (res.play) { done = true; *result = 1; }
+        if (res.play) { done = true; *result = 1; target = res.start; user = res.user; }
         if (res.leave)
         {
             done = true;
@@ -303,6 +305,8 @@ void launcher_main(void *arg)
     SDL_DestroyWindow(window);
     fprintf(stderr, "[UI] launcher closed: %s\n", *result ? "play" : "quit");
     fflush(stderr);
+    if (*result)
+        launcher_start(target, user);   // a tile that goes straight to a menu
     if (open_setup)
         pcui::setup_launch();
 }

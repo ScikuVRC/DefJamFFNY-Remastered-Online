@@ -19,6 +19,7 @@ extern "C" {
 #include "recomp_settings.h"
 #include "input_host.h"
 }
+#include "launcher_start.h"
 #include "pc_input.h"
 #include "pc_settings.h"
 #include "pc_ui.h"
@@ -311,6 +312,7 @@ extern "C" int pc_launcher_run(void)
     fflush(stderr);
 
     bool open_setup = false;
+    int start = LAUNCHER_START_TITLE, user = -1;
     g_done = false;
     g_result = 1;
     script_start(getenv("RECOMP_LAUNCHER_SCRIPT"));
@@ -343,7 +345,7 @@ extern "C" int pc_launcher_run(void)
             save_frame(shot);
         g_swap->Present(1, 0);
         if (g_script_end) { g_done = true; g_result = g_script_end > 0; }
-        if (res.play) { g_done = true; g_result = 1; }
+        if (res.play) { g_done = true; g_result = 1; start = res.start; user = res.user; }
         if (res.leave)
         {
             g_done = true;
@@ -362,6 +364,8 @@ extern "C" int pc_launcher_run(void)
     UnregisterClassW(L"DefJamRecompLauncher", GetModuleHandleW(nullptr));
     fprintf(stderr, "[UI] launcher closed: %s\n", g_result ? "play" : "quit");
     fflush(stderr);
+    if (g_result)
+        launcher_start(start, user);    // a tile that goes straight to a menu
     if (open_setup)
         pcui::setup_launch();
     return g_result;

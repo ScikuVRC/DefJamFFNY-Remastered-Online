@@ -90,6 +90,10 @@ bool slider_int(const char *label, int *value, int minimum, int maximum)
     ImGui::PopStyleColor(3);
     return changed;
 }
+ImFont *display()
+{
+    return display_font ? display_font : ImGui::GetFont();
+}
 void heading(const char *text, float size)
 {
     ImGui::PushFont(display_font, size / ImGui::GetStyle().FontScaleMain);
