@@ -33,8 +33,9 @@ Issue numbers below (#98 and so on) are from the original project's tracker.
   the start-up load and never in the fight. The loading stall once seen going into Story from
   the launcher's Continue was probably the same thing.
 - **Setup from this repository**: v0.14.0's Setup installed into a new folder from the release,
-  and HD Fighters installed there from the mod catalogue. A Clean Update from one version to
-  the next has not been run yet.
+  and HD Fighters installed there from the mod catalogue. A Clean Update from v0.14.1 to
+  v0.14.2 with v0.14.1's own Setup (`--operation update --release latest`) fetched the new
+  release, rebuilt it from the dump and switched the install over, keeping v0.14.1 beside it.
 
 ## v0.13.0 release qualifications
 
