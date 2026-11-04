@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
 #include <atomic>
 #include <string>
 #include <vector>
