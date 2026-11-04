@@ -6,10 +6,10 @@ game or game assets are distributed. Windows 11 x64 is the tested environment.
 
 ## Install with the Windows wizard
 
-Download `DefJamSetup-<version>-windows-x64.exe` from a release that includes
-setup on the release page.
-The commands below use the v0.6.0 filename. For local testing, run the supplied
-preview build.
+Download `DefJamSetup-<version>-windows-x64.exe` from the
+[latest release](https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/latest) (the
+launcher's **Update / Repair** > **Download Setup** opens the same page). The commands below
+use the v0.14.0 filename.
 
 1. Run the setup executable and select your ISO/XISO or extracted dump folder.
 2. Choose separate sibling folders, such as `D:\Games\DefJam\App` for the
@@ -37,7 +37,7 @@ saves/settings stay in the data folder.
 For silent mode in PowerShell:
 
 ```powershell
-$setupPath = (Resolve-Path .\DefJamSetup-0.6.0-windows-x64.exe).Path
+$setupPath = (Resolve-Path .\DefJamSetup-0.14.0-windows-x64.exe).Path
 $setupArguments = '--silent --dump "D:\Dumps\DefJam.iso" --install-dir "D:\Games\DefJam\App" --data-dir "D:\Games\DefJam\Data"'
 $setupResult = Start-Process -FilePath $setupPath -ArgumentList $setupArguments -Wait -PassThru
 $setupResult.ExitCode
@@ -145,7 +145,8 @@ the `[input]`, `[gamepad]` and `[keyboard]` settings for remapping, deadzones an
 
 Every setting, including these, is listed in [settings.ini and keybinds](settings-reference.md).
 
-The first thing you see is the launcher: the settings and a **Play** button (see
+The first thing you see is the launcher's Home: Continue (your Story profile), Battle, Online,
+Main Menu, Profiles and Mods, with Controls and Settings at the top (see
 [Launcher and overlay](launcher-and-overlay.md); tick *Skip the launcher* to go straight to the game). In the game, **F1**
 opens the same settings as an overlay.
 

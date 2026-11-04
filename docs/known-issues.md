@@ -3,6 +3,26 @@
 Playable Windows x64 was accepted by the maintainer on October 4, 2026. Test
 routes cover menus, setup, a fight, Story intro/creator, crib/gym and Unlock
 Fighters selection. They do not cover every mode or a full Story campaign.
+Issue numbers below (#98 and so on) are from the original project's tracker.
+
+## v0.14.0
+
+- **Online play uses TCP.** A lost packet stalls both games until it is resent; on a poor
+  connection the fight can hitch.
+- **Joining over the internet** has been checked only from inside the host's own network: the
+  router opened the port by UPnP, a connection to the public address reached the lobby, and the
+  port was closed again. Nobody has joined from outside yet. If a friend cannot join, read the
+  lobby's router line; forward TCP port 7777 by hand, or use a virtual LAN (such as Radmin VPN)
+  and join the host's address on it.
+- **The background crowd can differ** between the players' screens. The fighters and the fight
+  stay in step (the games compare the fight state every second).
+- **Created fighters online** have not been tried with two players whose profiles share a name,
+  or with a fighter whose parts come from a mod.
+- **A loading stall** happened once going into Story from the launcher's Continue; twelve
+  later starts were fine.
+- **Setup from this repository**: v0.14.0 is its first release here. A Clean Update from it to a
+  later version, and the HD packs from the new catalogue on a fresh install, have not been run
+  yet.
 
 ## v0.13.0 release qualifications
 
@@ -39,7 +59,7 @@ remains optional/off by default. No goldens or memory thresholds were relaxed.
 - **Story shops pause briefly on an item change (#119).** v0.12.1 removed the black LOADING frame that flashed when changing an item. The game still loads the chosen part synchronously: about 55-70 ms on a Mac, and 146-333 ms with both HD packs on Windows, where audio can underrun. A Windows comparison of no packs, Faithful only and both packs is the next step. Power Plant Story free-for-all pacing (#109) is addressed in v0.12.2.
 - **Created-fighter thumbnails saved blank before v0.12.1 (#113, fixed in v0.12.1).** The game now generates the snapshot, but a profile saved with an empty one keeps it until a new snapshot: load Story, enter and leave the Wardrobe, then Crib, Exit, Yes to save. Only small snapshot surfaces (up to 64 KiB) are filled on the CPU; other render-to-texture cases still draw on the GPU only.
 - **Fire-escape transition gap (fixed in v0.12.2).** The black rectangle above the leading left scenery tile during the title-to-main-menu pan came from an empty first tile in the game's scenery object. v0.12.2 repairs that tile at every aspect ratio; `RECOMP_MENU_TRANSITION_REPAIR=0` turns the repair off.
-- **HD Widescreen Menus coverage.** Select User ID, Choose Teams and Choose Venue still use their original backgrounds and side-fill behavior. Their widescreen artwork is deferred to modpack 1.1. The menu pack is a default-channel download (`1.0.0`, using the accepted RC2 archive), separate from generated Recomp HD textures. The owner accepted Steam Deck playtesting; final macOS validation remains unconfirmed.
+- **HD Widescreen Menus coverage.** Select User ID, Choose Teams and Choose Venue still use their original backgrounds and side-fill behavior. Their widescreen artwork was deferred past modpack 1.0; the pack's own README lists what 1.4.0 covers. The menu pack is a catalogue download, separate from generated Recomp HD textures. The owner accepted Steam Deck playtesting; final macOS validation remains unconfirmed.
 
 - **Audio crackle (fixed in v0.9.3, #30).**
   Cutscenes, menus and matches crackled because the game's audio thread refilled its 50 ms
@@ -216,7 +236,7 @@ improved; tracked in #30. A game started from inside
 a build container (podman or distrobox) has no sound, because the container has no PipeWire library;
 start it from the host. On macOS and Linux, vsync is only used on a display refreshing at a
 multiple of 60 Hz (60, 120, 180, 240), as on Windows: on a 75, 90, 100 or 144 Hz display the
-game paces itself and the picture can tear. On Windows such a display does not tear, but a 60 fps frame stays up for an uneven number of refreshes (two, then three, on 144 Hz), so fights can look choppy while the frame counter says 60 (#67); setting the display to 120 or 60 Hz avoids it. The game log's `[DISPLAY]` line records the refresh rate, the window mode and whether vsync paces the game. With variable refresh (G-Sync, FreeSync) in borderless full screen the frames are shown evenly; exclusive full screen is not needed for it (#92). Heavier picture settings (widescreen, render scale 3) made fight frames uneven there until the fix for #102, which hands each frame to the graphics card before the game's 60 fps timer waits. Network play is not supported.
+game paces itself and the picture can tear. On Windows such a display does not tear, but a 60 fps frame stays up for an uneven number of refreshes (two, then three, on 144 Hz), so fights can look choppy while the frame counter says 60 (#67); setting the display to 120 or 60 Hz avoids it. The game log's `[DISPLAY]` line records the refresh rate, the window mode and whether vsync paces the game. With variable refresh (G-Sync, FreeSync) in borderless full screen the frames are shown evenly; exclusive full screen is not needed for it (#92). Heavier picture settings (widescreen, render scale 3) made fight frames uneven there until the fix for #102, which hands each frame to the graphics card before the game's 60 fps timer waits. Online play arrived after M6: see [Online play](netplay.md).
 
 See the [improvement backlog](04-improvement-backlog.md) and
 [rebase acceptance](research/toolkit-rebase-acceptance.md) for details.

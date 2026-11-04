@@ -16,7 +16,7 @@ lockstep mode (docs/lockstep-mode.md) to play the same fight from the same input
 
 ## Playing
 
-In the launcher, **Online Match**. One player hosts (a port, 7777 by default), the others
+In the launcher, the **Online** tile (**Online Match** on the compact Home). One player hosts (a port, 7777 by default), the others
 join with `host-address:port`. The lobby shows the host's addresses on the local network,
 and for players over the internet it asks the router to forward the port to the host
 (below) and shows the public address to give them, with **Copy**.

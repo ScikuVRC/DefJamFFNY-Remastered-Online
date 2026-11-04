@@ -11,6 +11,8 @@
 | [Controllers, keyboard and mouse](10-input.md) | Gamepads, the keyboard player, default keys, remapping and rumble |
 | [settings.ini and keybinds](settings-reference.md) | Every setting, the default keys and key names, with examples |
 | [HD textures](hd-textures.md) | Optional texture packs on Windows, macOS and Linux: generation, settings and fallback |
+| [Mod manager](mod-manager.md) | Downloading and updating packs from the project catalogue, file mods (music, models, arenas), and publishing a pack |
+| [Online play](netplay.md) | Hosting and joining, the lobby and fighter select, the router, and how the games stay in step |
 | [Language packs](language-packs.md) | Playing in another language with a language mod, subtitles in every Story cutscene, use with texture packs, and making a pack |
 | [Importing Xbox saves](importing-xbox-saves.md) | Bring profiles from an original Xbox, an emulator or shared save zips into the port |
 | [Importing PS2 saves](importing-ps2-saves.md) | Convert Story profiles from a PS2 memory card, a PCSX2 card or an Action Replay MAX save |
@@ -31,7 +33,7 @@
 | [Agent playbooks](agent/README.md) | Reading a failed run (`triage.py`), diagnostics, the harness, sub-agent briefs; what `AGENTS.md` points to |
 | [Texture Modding — Getting Started](texture-modding-getting-started.md) | Find original images, edit an atlas, build a first replacement pack, set load order and share it |
 | [Texture processing and review](hd-texture-workflow.md) | Reproducing the HD texture census, upscale and review galleries |
-| [Release process](releasing.md) | Release trains (how PRs are queued and tested together), tag checks and GitHub CI |
+| [Release process](releasing.md) | Cutting a version: notes, checks, the tag, the Setup assets GitHub CI builds, and publishing |
 | [Maintaining the GitHub introduction](github-introduction.md) | About wording, README structure and the documentation release pass |
 | [Media capture plan](media/capture-plan.md) | Current-release screenshots/clips, export settings and capture handoff |
 

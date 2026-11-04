@@ -38,8 +38,9 @@ USA Xbox copy of the game**. Nothing from the game is in this repository.
 **Look and feel**
 - 60 frames a second, 1×–4× internal resolution, window or full screen.
 - Widescreen 16:9 and 16:10, with the HUD and menus kept in shape; original 4:3 still there.
-- HD texture packs: HD Fighters, HD Widescreen Menus, or a faithful 4× upscale made from your
-  own copy ([HD textures](docs/hd-textures.md)).
+- HD texture packs: HD Fighters and HD Widescreen Menus, downloaded and updated from the
+  launcher's Mods page, or a faithful 4× upscale made from your own copy
+  ([HD textures](docs/hd-textures.md)).
 - The game's own French menus and English subtitles in every Story cutscene.
 
 **Controls and settings**
@@ -51,7 +52,7 @@ USA Xbox copy of the game**. Nothing from the game is in this repository.
   venue ([The developer menu](docs/developer-menu.md)).
 
 **Mods**
-- Texture packs, enabled and ordered on the launcher's Mods page.
+- Texture packs, downloaded, updated, enabled and ordered on the launcher's Mods page.
 - File mods: music, speech, models and arenas, laid out like the game folder
   ([Mod manager](docs/mod-manager.md)). Everyone in an online match needs the same file mods.
 
@@ -60,11 +61,13 @@ USA Xbox copy of the game**. Nothing from the game is in this repository.
 1. Have your own USA Xbox disc image or extracted copy, matching the
    [supported dump manifest](config/dump-manifest.json). PS2 and GameCube copies cannot be
    played (but their saves can be imported).
-2. Build the game from source on Windows: [Build and play](docs/build-and-play.md). It needs
-   Visual Studio Build Tools (C++, with CMake and Ninja), Python 3.12 or newer and Git; the
-   build turns your copy's executable into the game on your own machine.
-3. Start it, choose your display and controller settings in the launcher, and press **Play** —
-   or **Online Match** to host or join.
+2. Download **Def Jam Setup** (`DefJamSetup-<version>-windows-x64.exe`) from the
+   [latest release](https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/latest), run it and
+   pick your copy. Setup builds the game from it on your own machine (it brings its own Python
+   and installs Microsoft's build tools if you allow it). Or build from source yourself:
+   [Build and play](docs/build-and-play.md).
+3. Start it. The launcher's Home has **Continue** (your Story), **Battle**, **Online**,
+   **Main Menu**, **Profiles** and **Mods**; **Controls** and **Settings** are at the top.
 
 Windows 10 or 11, 64-bit, with a DirectX 11 graphics card. The code also builds on macOS
 (Apple Silicon) and Linux ([Build on macOS and Linux](docs/build-macos-linux.md)), but this
@@ -72,11 +75,11 @@ project is tested on Windows.
 
 ## Online play in short
 
-- **Host:** launcher → *Online Match* → *Host*. The lobby asks your router to open the port
+- **Host:** launcher → *Online* → *Host*. The lobby asks your router to open the port
   (UPnP, which most home routers have on) and shows the address to give the others, with a
   Copy button. If your router can't, the lobby says why: then forward TCP port 7777 to your PC
   in the router yourself.
-- **Join:** launcher → *Online Match* → enter `host-address:7777`.
+- **Join:** launcher → *Online* → enter `host-address:7777`.
 - Everyone needs the same build and the same copy of the game; the lobby says if they differ.
 
 How it works, and what is not done yet: [Online play](docs/netplay.md).
