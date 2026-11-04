@@ -33,6 +33,7 @@
 #include "hooks/pc_settings.h"
 #include "hooks/pc_input.h"
 #include "hooks/pc_ui.h"
+#include "hooks/netplay_router.h"
 
 static SDL_Window *s_window;
 static int         s_have_video;
@@ -454,6 +455,7 @@ static void handle_event(const SDL_Event *ev)
         fflush(stderr);
         fflush(stdout);
         pc_input_stop();                    /* no pad left vibrating */
+        netplay_router_close();             /* nor an online host's port forward left in the router */
         _Exit(0);
     case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:

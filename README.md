@@ -72,8 +72,10 @@ project is tested on Windows.
 
 ## Online play in short
 
-- **Host:** launcher → *Online Match* → *Host*. The lobby shows the addresses to give the
-  others. Over the internet, forward TCP port 7777 to your PC in your router.
+- **Host:** launcher → *Online Match* → *Host*. The lobby asks your router to open the port
+  (UPnP, which most home routers have on) and shows the address to give the others, with a
+  Copy button. If your router can't, the lobby says why: then forward TCP port 7777 to your PC
+  in the router yourself.
 - **Join:** launcher → *Online Match* → enter `host-address:7777`.
 - Everyone needs the same build and the same copy of the game; the lobby says if they differ.
 

@@ -33,6 +33,7 @@
 #include "pc_input.h"
 #include "pc_ui.h"
 #include "pc_debug.h"
+#include "netplay_router.h"
 #include "pc_language.h"
 #include "patches/widescreen.h"
 #include "patches/picture.h"
@@ -457,6 +458,7 @@ static void run_launcher_if_wanted(void)
     if (!pc_launcher_run()) {
         fprintf(stderr, "[UI] the launcher was closed; not starting the game\n");
         fflush(stderr);
+        netplay_router_close();     /* a lobby's port forward; ExitProcess runs no atexit */
         ExitProcess(0);
     }
     pc_input_restart();
@@ -478,6 +480,7 @@ static void run_launcher_if_wanted(void)
         fprintf(stderr, "[UI] the launcher was closed; not starting the game\n");
         fflush(stderr);
         pc_input_stop();
+        netplay_router_close();     /* a lobby's port forward; _Exit runs no atexit */
         fflush(stdout);
         _Exit(0);
     }

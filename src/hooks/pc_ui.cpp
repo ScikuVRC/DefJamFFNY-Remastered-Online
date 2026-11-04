@@ -36,6 +36,7 @@
 #include "pc_ui_actions.h"
 #include "pc_launcher_home.h"
 #include "netplay.h"
+#include "netplay_router.h"
 
 #include "imgui.h"
 #if defined(_WIN32)
@@ -1601,9 +1602,30 @@ static void ui_online_match(UiResult &result, float width, float scale)
                 std::string list;
                 for (int i = 0; i < address_count; i++)
                     list += std::string(i ? ", " : "") + addresses[i] + ":" + port;
-                ImGui::TextDisabled("Players on your network join %s; over the internet, your public address "
-                                    "(with the port open in your router).", list.c_str());
+                ImGui::TextDisabled("On your network: %s", list.c_str());
             }
+            // Over the internet: the router asked to open the port (netplay_router.c).
+            char router[256];
+            int state = netplay_router_status(router, sizeof router);
+            if (state == NETPLAY_ROUTER_TRYING)
+                ImGui::TextDisabled("Opening port %s in your router...", port);
+            else if (state == NETPLAY_ROUTER_OPEN && router[0])
+            {
+                ImGui::TextColored(green, "Over the internet: %s", router);
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Copy"))
+                    pcui::copy_text(router);
+                ui_target("OnlineCopy");
+                ImGui::TextDisabled("Your router opened the port. Give the others this address.");
+            }
+            else if (state == NETPLAY_ROUTER_OPEN)
+                ImGui::TextColored(green, "Your router opened port %s: give the others your public address.", port);
+            else if (state == NETPLAY_ROUTER_FAILED)
+                ImGui::TextWrapped("Over the internet the others cannot reach you yet: %s. Forward TCP port %s to "
+                                   "this PC in your router, or play on one network.", router, port);
+            else
+                ImGui::TextDisabled("Over the internet: your public address, with TCP port %s forwarded to this PC.",
+                                    port);
         }
         else
         {
@@ -1799,6 +1821,7 @@ static void ui_online_match(UiResult &result, float width, float scale)
         else
             ImGui::CloseCurrentPopup();
     }
+    ui_target("OnlineLeave");
     ImGui::PopTextWrapPos();
     ImGui::EndPopup();
 }

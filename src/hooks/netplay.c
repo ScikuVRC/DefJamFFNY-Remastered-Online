@@ -75,6 +75,7 @@ typedef int sock_t;
 
 #include "launcher_start.h"
 #include "netplay.h"
+#include "netplay_router.h"
 #include "recomp/gen/recomp_types.h"
 #include "test_observations.h"
 
@@ -805,6 +806,9 @@ static int host_lobby(void)
         set_state(NETPLAY_FAILED, "Could not listen on port %u (is another program using it?)", s_port);
         return 0;
     }
+    /* Players over the internet need the port forwarded to this PC: ask the router to
+     * (netplay_router.c), in the background; the lobby shows how that went. */
+    netplay_router_open(s_port);
     lock();
     snprintf(s_lobby.name[0], sizeof s_lobby.name[0], "%s", s_name);
     s_lobby.players = 1;
@@ -1482,10 +1486,12 @@ static void *worker_entry(void *arg)
         if (netplay_state() != NETPLAY_FAILED)
             set_state(NETPLAY_FAILED, s_cancel ? "Cancelled" : "The connection was lost");
         for (p = 0; p < MAXP; p++) drop(p);
+        if (s_hosting) netplay_router_close();
         return 0;
     }
     set_state(NETPLAY_READY, "Match agreed (seed %u): starting", s_match.seed);
     listen_in_game();
+    if (s_hosting) netplay_router_close();     /* every player has gone */
     return 0;
 }
 

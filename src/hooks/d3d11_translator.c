@@ -40,6 +40,7 @@
 #include "texture_pack.h"            /* texture_pack_stats: the HD pack's resident bytes for frames.csv */
 #include "pc_settings.h"
 #include "pc_input.h"
+#include "netplay_router.h"
 #include "pc_ui.h"
 #include "recomp_settings.h"
 #include "recorder.h"
@@ -256,6 +257,7 @@ static LRESULT CALLBACK translator_wndproc(HWND h, UINT msg, WPARAM wp, LPARAM l
      * log line keeps a deliberate close from reading like a crash. */
     if (msg == WM_CLOSE) {
         pc_input_stop();        /* a pad must not be left vibrating */
+        netplay_router_close(); /* nor an online host's port forward left in the router */
         fprintf(stderr, "[TRANS] window closed by the user; exiting\n");
         fflush(stderr);
         fflush(stdout);

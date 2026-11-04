@@ -11,13 +11,37 @@ lockstep mode (docs/lockstep-mode.md) to play the same fight from the same input
 | 3. Match setup: lobby, compatibility check, agreed match, start barrier | done |
 | 4. Lockstep play: exchange inputs every step, input delay, live desync check | done; untested with a real pad and between machines |
 | 5. Created fighters: each player's own, from their profile | done (one profile tested) |
-| 6. Rollback, spectating, a relay for players behind routers | later |
+| 6. The host's port opened in the router (UPnP) | done; tested on one router, not yet from outside it |
+| 7. Rollback, spectating, a relay for players behind a router UPnP cannot open | later |
 
 ## Playing
 
-In the launcher, **Online Match**. One player hosts (a port, 7777 by default; it may
-need opening in the router; the lobby shows this computer's addresses to give the
-others), the others join with `host-address:port`.
+In the launcher, **Online Match**. One player hosts (a port, 7777 by default), the others
+join with `host-address:port`. The lobby shows the host's addresses on the local network,
+and for players over the internet it asks the router to forward the port to the host
+(below) and shows the public address to give them, with **Copy**.
+
+### The router
+
+Hosting asks the home router, through UPnP's Internet Gateway Device, to forward the TCP
+port to this PC (`src/hooks/netplay_router.c`): an SSDP search out of every network adapter
+(a VPN or a virtual switch often takes multicast otherwise), the router's description, then
+`AddPortMapping` and `GetExternalIPAddress`. The forward is taken away when the session ends,
+when the launcher or the game window is closed, and by the router itself after four hours
+if the game never gets to (a crash); a router that takes only permanent forwards gets one.
+When it cannot be done the lobby says why, and the port has to be forwarded by hand:
+
+- no router answered (UPnP switched off in the router: switch it on, or forward the port);
+- the port is already forwarded to another device on the network;
+- the router is behind another one (its own address is private, or a provider's shared
+  `100.64.x.x` one): a forward there reaches only the network outside it. Forward the port
+  in both, or play over a virtual LAN such as a VPN the players share.
+
+`RECOMP_NETPLAY_UPNP=0` leaves the router alone; test runs (`RECOMP_SETTINGS=none`) do too
+unless it is `1`. `RECOMP_NETPLAY_UPNP_LOCATION=<description URL>` skips the search
+(`tests/unit/test_netplay_router.py` runs the code against a fake router that way). Tested
+2026-11-03 on one router (a Sagemcom): opened, reachable at the public address from the
+same network, and gone again after leaving the lobby; not yet joined from outside it.
 
 1. **Waiting room.** Everyone who joins is listed; each player ticks **I'm ready**.
    The host chooses the match: the type (One on One, Team Match, Free For All and the
