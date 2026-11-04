@@ -142,3 +142,20 @@ every site are the test that it worked.
 Until then: compare the game-state stream rather than pictures, keep stream
 comparisons short, and expect an occasional `replay` failure with the CPU fighter
 near the crowd.
+
+## The background crowd in lockstep play (2026-11-04)
+
+Two online games (one with HD packs, different saves and menus, different cores) compared
+with `RECOMP_TEST_SYNC=1` and `RECOMP_TEST_SYNC_DUMP=1,600` (part 200 is the crowd's entries:
+the animation frame in the high half). In order, what kept them apart and what fixed it
+(`crowd_control.c`, `recomp_manual.c` wrappers of `sub_000DB870`, `sub_000DB620`, `sub_000DB2D0`):
+
+| Difference | Fix in lockstep |
+|---|---|
+| `sub_000DB870` is called every rendered frame and returns at once while its gate byte is clear, for a host-timed part of loading; `hold` counted those calls | count only the updates that run |
+| Time (`sub_000DB620`, 1/60 a call) is added every rendered frame, not once per update, and before the first update: animating members 8 frames apart after 600 updates | skip it; each update that runs adds one frame's time, from zero; in the fight it is added once a fight step |
+| The crowd's set-up (60 draws, `sub_000DB2D0`) and its updates draw from the C runtime's `rand` (seed at +0x14 of `sub_00203B1C`'s per-thread data), which the two games reach through different menus | a private seed, from the lockstep seed, swapped in around both |
+| The same random value took different branches (`0xDB6A7` against `0xDB6F9`) after 67 equal draws: animation data arrives from disc at a host-timed point of the window | 4 updates in the window (they set up its drawing), the other 596 back to back at the first fight step, as `spect` does for the spectators |
+
+Result: the background crowd's hash equal at all 18,622 steps of a match, with the fighters,
+spectators and generators.

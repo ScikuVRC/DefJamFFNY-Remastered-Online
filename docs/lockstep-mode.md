@@ -17,7 +17,7 @@ $env:RECOMP_LOCKSTEP_SEED = "20261006"   # optional; both machines must use the 
 | Match generator: seed, and for a process's later matches an additive term from the time-stamp counter | both pinned | `lockstep.c`, `test_telemetry.c` (`defjam_test_rng`) |
 | Four per-fighter AI generators seeded from the time-stamp counter | pinned | `defjam_test_ai_seed` |
 | CLogic's generator (`0x376FDC`) seeded from the time-stamp counter | pinned where it is seeded | `crowd_control.c` (`defjam_crowd_seed`) |
-| Background crowd and spectators leave the loading window in a host-timed state; spectators update once a frame; they share a generator with menus | `hold`, `spect`, `reseed` | `crowd_control.c`, docs/research/crowd-nondeterminism.md |
+| Background crowd and spectators leave the loading window in a host-timed state; both update once a frame; they share generators with menus | `hold`, `spect`, `reseed`; in lockstep the background crowd also runs 4 set-up updates in the window and the rest at the first step, gets its time once a fight step, and draws from a private `rand` seed (v0.14.2) | `crowd_control.c`, docs/research/crowd-nondeterminism.md |
 | First-time help tips (CFirstTimeHelp at `0x346A68`) pause the fight, and which ones a player gets depends on their save | off: the enabled byte `0x346BEC` is cleared whenever the help hears of an event (`sub_000D6670`) | `defjam_lockstep_tip` |
 | The fight step draws from the utility generator (`0x39C0E0`, through `sub_000AC590`), which UI code also draws from every frame | the step gets a private copy, seeded at every match start | `defjam_lockstep_utility_swap` |
 
@@ -41,9 +41,10 @@ In lockstep the state stream's `rng_util` and the fingerprint's utility part rea
 step's private copy (`defjam_lockstep_utility_state`); the real generator is moved by
 menus every frame.
 
-Still different between runs, without effect on play so far: the background crowd's
-frames, the fighters' walk-in pose floats at step 2 (they converge), and the pad
-table's live A presses that the test harness makes.
+Still different between runs, without effect on play so far: the fighters' walk-in
+pose floats at step 2 (they converge), and the pad table's live A presses that the test
+harness makes. The background crowd's frames agree since v0.14.2 (two online games, one
+with HD packs, 18,622 steps).
 
 ## Not covered yet
 

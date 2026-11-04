@@ -51,6 +51,9 @@ void sub_00068BA0(void)
 }
 /* The spectators' own update, which crowd_control.c wraps; these tests do not reach it. */
 void sub_00081170_gen(void) {}
+void sub_000DB620_gen(void) {}
+void sub_000DB870_gen(void) {}
+void sub_00203B1C(void) {}
 /* dev_module.c's hand-off, which the scene launcher calls when a scene ends. */
 void dev_module_scene_ended(void) { fprintf(stderr, "[stub] scene ended\n"); }
 void dev_module_again(void) { fprintf(stderr, "[stub] again\n"); }

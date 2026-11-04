@@ -23,7 +23,12 @@
  *              cleared. Every run then enters the fight with the crowd updated
  *              exactly N times. (Clearing the byte for the whole window crashed at
  *              the first step, because the first updates also set up the crowd's
- *              drawing; N updates do that first.)
+ *              drawing; N updates do that first.) In the fight the crowd's time is
+ *              then added once a fight step instead of once a rendered frame (a
+ *              frame that catches up runs two steps), and its update draws from a
+ *              private copy of the C runtime's rand, seeded at match set-up: other
+ *              code on the game thread draws from the same one in a host-timed way.
+ *              See defjam_crowd_time and defjam_crowd_rand_swap.
  *   spect[:M]  the spectators: their manager's update (sub_00081170) is deferred
  *              out of the window and run M times (default 500; about 624 happen in
  *              a window) at the first fight step, once everything has loaded. Its
@@ -64,6 +69,10 @@
 #include "lockstep.h"
 
 extern void sub_000AA0D0(void);
+extern void sub_000DB620_gen(void);     /* the background crowd's time (thiscall, dt) */
+extern void sub_000DB870_gen(void);     /* its update (thiscall) */
+#define CROWD_SETUP     4               /* updates that set the crowd up in lockstep play */
+extern void sub_00203B1C(void);         /* the C runtime's per-thread data (rand's seed at +0x14) */
 
 #define CROWD_GATE      0x002E3488u
 #define SEEDS_MAX       8
@@ -74,7 +83,12 @@ static int s_spect, s_spect_n = 500;
 static long s_spect_calls;          /* spectator updates in the window */
 static uint32_t s_spect_manager, s_crowd_object;    /* last seen, for the hashes */
 static long s_updates;              /* the crowd updates on the game thread */
+static long s_live_updates;         /* ... that ran: the gate byte was set */
 static int s_in_window, s_held, s_gate_value;
+static int s_crowd_fight;           /* the fight's steps drive the background crowd's time */
+static uint32_t s_crowd_dt;         /* the time it is given each frame: a fixed 1/60 */
+static uint32_t s_crowd_rand, s_saved_rand, s_rand_ptd;    /* its private rand seed */
+static int s_crowd_rand_on;
 static struct { uint32_t generator, high, low; } s_seeds[SEEDS_MAX];
 static int s_seed_count;
 
@@ -234,13 +248,42 @@ void defjam_crowd_draw(uint32_t generator, uint32_t caller)
 }
 
 /* sub_000DB620(this, dt): time added to the background crowd's accumulator (+0x13C),
- * from which sub_000DB730 takes whole animation frames. `probe` logs it in the window. */
-void defjam_crowd_time(uint32_t self, uint32_t stack)
+ * from which sub_000DB730 takes whole animation frames. It is called once a rendered
+ * frame; with `hold` that call is skipped (returns 1): while the match loads each
+ * update that runs adds the time itself (defjam_crowd_update), and in the fight
+ * defjam_crowd_step adds it once a fight step, so every game's crowd has advanced as
+ * many frames by a given step. `probe` logs it in the window. */
+int defjam_crowd_time(uint32_t self, uint32_t stack)
 {
-    if (!active() || !s_probe || !s_in_window) return;
-    fprintf(stderr, "[TEST-CROWD] {\"event\":\"crowd_time\",\"this\":%u,\"caller\":%u,\"dt\":%.9g,\"acc\":%.9g,"
-                    "\"crowd_updates\":%ld}\n",
-            self, MEM32(stack), (double)MEMF(stack + 4), (double)MEMF(self + 0x13C), (long)s_updates);
+    if (!active()) return 0;
+    s_crowd_object = self;
+    s_crowd_dt = MEM32(stack + 4);
+    if (s_probe && s_in_window)
+        fprintf(stderr, "[TEST-CROWD] {\"event\":\"crowd_time\",\"this\":%u,\"caller\":%u,\"dt\":%.9g,\"acc\":%.9g,"
+                        "\"crowd_updates\":%ld}\n",
+                self, MEM32(stack), (double)MEMF(stack + 4), (double)MEMF(self + 0x13C), (long)s_updates);
+    return s_hold && (s_crowd_fight || s_in_window);
+}
+
+/* Around sub_000DB870 (the background crowd's update) and sub_000DB2D0 (its set-up,
+ * which places the members with 60 draws): their draws from the C runtime's
+ * rand come from a private seed. rand keeps its seed per thread (+0x14 of the data
+ * sub_00203B1C returns), and the game thread's other draws -- menus, effects -- come
+ * at host-timed points, so the crowd's share of that one sequence differed between
+ * games. Returns 1 when it swapped (enter), so the caller swaps back. */
+int defjam_crowd_rand_swap(int enter)
+{
+    if (!active() || !s_hold || !s_crowd_rand_on) return 0;
+    if (enter) {
+        s_rand_ptd = guest_call(sub_00203B1C, 0, 0, NULL);
+        if (s_rand_ptd < 0x10000u) return 0;
+        s_saved_rand = MEM32(s_rand_ptd + 0x14);
+        MEM32(s_rand_ptd + 0x14) = s_crowd_rand;
+    } else {
+        s_crowd_rand = MEM32(s_rand_ptd + 0x14);
+        MEM32(s_rand_ptd + 0x14) = s_saved_rand;
+    }
+    return 1;
 }
 
 /* sub_001A4D90: the match is being set up. The window starts here. */
@@ -252,8 +295,16 @@ void defjam_crowd_match_start(void)
         s_held = 0;
     }
     s_updates = 0;
+    s_live_updates = 0;
     s_spect_calls = 0;
     s_spect_fight = 0;
+    s_crowd_fight = 0;
+    if (s_hold) {
+        uint32_t seed;
+        if (!defjam_pinned_seed(&seed)) seed = 0x5EED;
+        s_crowd_rand = seed * 1664525u + 1013904223u;
+        s_crowd_rand_on = 1;
+    }
     s_spect_self = 0;
     s_seed_count = 0;
     s_in_window = 1;
@@ -310,20 +361,59 @@ int defjam_crowd_hash_part(int part, uint32_t *base, uint32_t *bytes)
     return 1;
 }
 
-/* sub_000DB870: one update of the background crowd. */
+/* sub_000DB870: one update of the background crowd. It is called every rendered frame
+ * and does nothing while its gate byte is clear, which it is for a host-timed part of
+ * loading. So `hold` counts the updates that run, starts their time from zero, and
+ * gives each one frame's time: rendered frames and updates were not one to one, and
+ * two games had their animating members 8 frames apart after the same 600 updates. */
 void defjam_crowd_update(void)
 {
     long n;
     s_crowd_object = g_ecx;
     if (!active() || !s_in_window) return;
-    n = ++s_updates;
-    if (s_hold && !s_held && n == s_hold_n) {
+    ++s_updates;
+    if (!MEM8(CROWD_GATE)) return;
+    n = ++s_live_updates;
+    if (s_hold) {
+        /* While loading, the time comes with the updates that run, one frame's each,
+         * not with the rendered frames (defjam_crowd_time skips those): 600 updates
+         * then advance every game's crowd alike. */
+        if (n == 1)
+            MEM32(g_ecx + 0x13C) = 0;
+        if (s_crowd_dt) {
+            uint32_t dt = s_crowd_dt;
+            guest_call(sub_000DB620_gen, g_ecx, 1, &dt);
+        }
+    }
+    if (s_hold && !s_held && n == (defjam_lockstep_enabled() ? CROWD_SETUP : s_hold_n)) {
         /* This update runs; the caller tests the byte before the next one. */
         s_gate_value = MEM8(CROWD_GATE);
         MEM8(CROWD_GATE) = 0;
         s_held = 1;
         fprintf(stderr, "[TEST-CROWD] {\"event\":\"hold\",\"updates\":%ld}\n", (long)n);
     }
+}
+
+/* Lockstep play holds the background crowd after CROWD_SETUP updates (they set up its
+ * drawing) and runs the rest of its N at the first fight step, once everything has
+ * loaded: its animation data arrives from disc at a host-timed point of the window,
+ * and the same random draw took one branch on one game and another on the other while
+ * it was missing (two online games, 2026-11-04). Test mode keeps the plain hold. */
+static void crowd_replay(void)
+{
+    long i;
+    if (!s_crowd_object || s_hold_n <= CROWD_SETUP) return;
+    for (i = CROWD_SETUP; i < s_hold_n; i++) {
+        int swapped;
+        if (s_crowd_dt) {
+            uint32_t dt = s_crowd_dt;
+            guest_call(sub_000DB620_gen, s_crowd_object, 1, &dt);
+        }
+        swapped = defjam_crowd_rand_swap(1);
+        guest_call(sub_000DB870_gen, s_crowd_object, 0, NULL);
+        if (swapped) defjam_crowd_rand_swap(0);
+    }
+    fprintf(stderr, "[TEST-CROWD] {\"event\":\"crowd_replay\",\"updates\":%ld}\n", (long)(s_hold_n - CROWD_SETUP));
 }
 
 /* sub_000AA0D0(this = generator, high, low): remembered while the match is set up. */
@@ -364,8 +454,11 @@ void defjam_crowd_step(void)
     if (!active()) return;
     if (s_spect_fight && s_spect_self)          /* this step's spectator update */
         spectator_update(s_spect_self, &s_spect_dt);
+    if (s_crowd_fight && s_crowd_object && s_crowd_dt)  /* this step's background crowd time */
+        guest_call(sub_000DB620_gen, s_crowd_object, 1, &s_crowd_dt);
     if (!s_in_window) return;
     s_in_window = 0;
+    s_crowd_fight = s_hold;
     if (s_held) {
         MEM8(CROWD_GATE) = (uint8_t)s_gate_value;
         s_held = 0;
@@ -374,6 +467,8 @@ void defjam_crowd_step(void)
          * become a different number of frames in every run. */
         if (s_crowd_object)
             MEM32(s_crowd_object + 0x13C) = 0;
+        if (defjam_lockstep_enabled())
+            crowd_replay();
     }
     if (s_spect && s_spect_self) {
         uint32_t scale = MEM32(0x003BDE80u);
@@ -387,9 +482,10 @@ void defjam_crowd_step(void)
         spectator_update(s_spect_self, &s_spect_dt);  /* and the first step's */
     }
     snprintf(fields, sizeof fields, "\"updates_in_window\":%ld,\"held\":%s,\"spectator_updates\":%ld,"
-             "\"spect_held\":%s,\"reseeded\":%d",
-             (long)s_updates, s_hold && s_updates >= s_hold_n ? "true" : "false", (long)s_spect_calls,
-             s_spect && s_spect_calls > SPECT_SETUP ? "true" : "false", s_reseed ? s_seed_count : 0);
+             "\"spect_held\":%s,\"reseeded\":%d,\"live_updates\":%ld",
+             (long)s_updates, s_hold && s_live_updates >= s_hold_n ? "true" : "false", (long)s_spect_calls,
+             s_spect && s_spect_calls > SPECT_SETUP ? "true" : "false", s_reseed ? s_seed_count : 0,
+             (long)s_live_updates);
     fprintf(stderr, "[TEST-CROWD] {\"event\":\"first_step\",%s}\n", fields);
     recorder_event("crowd", fields);
     if (!s_reseed) return;

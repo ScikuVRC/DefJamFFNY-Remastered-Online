@@ -247,6 +247,7 @@ Terrordome (`RECOMP_NETPLAY_VENUE=6`) started there on both and stayed in sync.
   first frame, with the timer thread not run for minutes and the USB and graphics DPCs
   queued. One game alone started 14 of 14 times, and the pair that started played
   11,655 steps with fighters, pads and generators the same on both (only the background
-  crowd differs, as it did before the merge: docs/research/crowd-nondeterminism.md).
+  crowd differed, as it did before the merge: docs/research/crowd-nondeterminism.md; it
+  agrees since v0.14.2).
 - A rare wild indirect call in the controller library at boot (`0x27EC6E`, once in 69
   runs), skipped without harm.

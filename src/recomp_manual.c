@@ -48,7 +48,8 @@ void defjam_crowd_seed(uint32_t generator, uint32_t stack);
 void defjam_crowd_step(void);
 int defjam_crowd_spectators(uint32_t self, uint32_t stack);
 void defjam_crowd_draw(uint32_t generator, uint32_t caller);
-void defjam_crowd_time(uint32_t self, uint32_t stack);
+int defjam_crowd_time(uint32_t self, uint32_t stack);
+int defjam_crowd_rand_swap(int enter);
 int defjam_crowd_rng_swap(int enter);
 void defjam_crowd_spectator_setup(void);
 void defjam_lockstep_tip(void);
@@ -190,9 +191,38 @@ void sub_00200820_enter(void) { defjam_test_draw(1, MEM32(g_esp)); defjam_crowd_
 void sub_001BC6E0_enter(void) { defjam_test_draw(2, MEM32(g_esp)); }
 void sub_000AA300_enter(void) { defjam_test_draw(g_ecx, MEM32(g_esp)); defjam_crowd_draw(g_ecx, MEM32(g_esp)); }
 void sub_000AA340_enter(void) { defjam_test_draw(g_ecx, MEM32(g_esp)); defjam_crowd_draw(g_ecx, MEM32(g_esp)); }
-void sub_000DB870_enter(void) { defjam_test_crowd_update(); defjam_crowd_update(); }
-/* Time added to the background crowd (thiscall, dt); see defjam_crowd_time. */
-void sub_000DB620_enter(void) { defjam_crowd_time(g_ecx, g_esp); }
+/* The background crowd's update (thiscall): with a private rand seed in lockstep play
+ * (defjam_crowd_rand_swap). */
+extern void sub_000DB870_gen(void);
+void sub_000DB870(void)
+{
+    int swapped;
+    defjam_test_crowd_update();
+    defjam_crowd_update();
+    swapped = defjam_crowd_rand_swap(1);
+    sub_000DB870_gen();
+    if (swapped) defjam_crowd_rand_swap(0);
+}
+/* The background crowd's set-up (its 60 draws from rand, one per member): from the same
+ * private seed, since the two games of an online match reach it through different menus. */
+extern void sub_000DB2D0_gen(void);
+void sub_000DB2D0(void)
+{
+    int swapped = defjam_crowd_rand_swap(1);
+    sub_000DB2D0_gen();
+    if (swapped) defjam_crowd_rand_swap(0);
+}
+/* Time added to the background crowd (thiscall, dt, ret 4); in a lockstep fight it is
+ * added once a fight step instead (see defjam_crowd_time). */
+extern void sub_000DB620_gen(void);
+void sub_000DB620(void)
+{
+    if (defjam_crowd_time(g_ecx, g_esp)) {
+        g_esp += 8;     /* ret 4: the return address and dt */
+        return;
+    }
+    sub_000DB620_gen();
+}
 /* The first-time help hears of an event and may show a tip; see defjam_lockstep_tip. */
 void sub_000D6670_enter(void) { defjam_lockstep_tip(); }
 /* The spectators' update (thiscall, dt, ret 4), reached only through its vtable; skipped
