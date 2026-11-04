@@ -147,7 +147,8 @@ def tool(tmp_path_factory):
     sources = [str(driver), str(ROOT / 'src/hooks/fe_inject.c'), str(ROOT / 'src/hooks/crowd_control.c'),
                str(ROOT / 'src/hooks/scene_launcher.c'),
                str(ROOT / 'src/hooks/recorder.c'), str(ROOT / 'tests/unit/lockstep_stub.c')]
-    # crowd_control.c reads the shared seed (lockstep.c, stubbed) and includes src/host.h.
+    # crowd_control.c reads the shared seed (lockstep.c, stubbed) and includes src/host.h,
+    # which off Windows includes the toolkit's win32_compat.h and mmio_trap.h.
     if os.name == 'nt':
         exe = folder / 'controls.exe'
         cmd = [cc, '/nologo', '/TC', '/I' + str(folder), '/I' + str(ROOT / 'src/hooks'),
@@ -155,7 +156,8 @@ def tool(tmp_path_factory):
     else:
         exe = folder / 'controls'
         cmd = [cc, '-std=gnu11', '-I' + str(folder), '-I' + str(ROOT / 'src/hooks'),
-               '-I' + str(ROOT / 'src')] + sources + ['-o', str(exe), '-lpthread', '-lm']
+               '-I' + str(ROOT / 'src'), '-I' + str(ROOT / 'tools/xboxrecomp/src/platform')] \
+            + sources + ['-o', str(exe), '-lpthread', '-lm']
     r = subprocess.run(cmd, cwd=folder, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     return exe
