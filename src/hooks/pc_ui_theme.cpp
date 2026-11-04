@@ -1,5 +1,6 @@
 #include "pc_ui_theme.h"
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <cstdlib>
 #include <string>
@@ -38,45 +39,65 @@ void theme(float scale)
     s = ImGuiStyle();
     ImGui::StyleColorsDark();
     s.WindowPadding = ImVec2(22, 18);
-    s.FramePadding = ImVec2(12, 10);
+    s.FramePadding = ImVec2(12, 9);
     s.ItemSpacing = ImVec2(12, 10);
     s.WindowRounding = 0;
-    s.ChildRounding = 5;
-    s.FrameRounding = 3;
-    s.GrabRounding = 3;
-    s.TabRounding = 3;
-    s.Colors[ImGuiCol_Text] = ImVec4(.914f, .875f, .784f, 1);
-    s.Colors[ImGuiCol_TextDisabled] = ImVec4(.753f, .718f, .651f, 1);
-    s.Colors[ImGuiCol_WindowBg] = ImVec4(.086f, .082f, .075f, 1);
-    s.Colors[ImGuiCol_ChildBg] = ImVec4(.141f, .129f, .118f, 1);
-    s.Colors[ImGuiCol_PopupBg] = ImVec4(.14f, .125f, .11f, 1);
+    s.ChildRounding = 8;
+    s.PopupRounding = 8;
+    s.FrameRounding = 5;
+    s.GrabRounding = 4;
+    s.TabRounding = 5;
+    s.ScrollbarRounding = 6;
+    // A hairline round every field, so a text box or a check box shows on any panel.
+    s.FrameBorderSize = 1;
+    s.TabBarOverlineSize = 2;
+    // The Home's colours (pc_launcher_home.cpp): a warm near-black, translucent panels over the
+    // city, white lines and fills at low strength, amber for what is chosen or active.
+    auto white = [](float a) { return ImVec4(1, 1, 1, a); };
+    auto lit = [](float a) { ImVec4 c = amber(); c.w = a; return c; };
+    s.Colors[ImGuiCol_Text] = ImVec4(.914f, .886f, .839f, 1);
+    s.Colors[ImGuiCol_TextDisabled] = ImVec4(.647f, .616f, .576f, 1);
+    s.Colors[ImGuiCol_WindowBg] = ImVec4(.055f, .043f, .035f, 1);
+    s.Colors[ImGuiCol_ChildBg] = ImVec4(.094f, .078f, .067f, .88f);
+    s.Colors[ImGuiCol_PopupBg] = ImVec4(.102f, .086f, .074f, .98f);
     s.Colors[ImGuiCol_TitleBg] = ImVec4(.16f, .14f, .12f, 1);
-    s.Colors[ImGuiCol_TitleBgActive] = ImVec4(.36f, .16f, .13f, 1);
+    s.Colors[ImGuiCol_TitleBgActive] = ImVec4(.24f, .17f, .11f, 1);
     s.Colors[ImGuiCol_TitleBgCollapsed] = s.Colors[ImGuiCol_TitleBg];
-    s.Colors[ImGuiCol_Border] = ImVec4(.318f, .294f, .255f, 1);
-    s.Colors[ImGuiCol_Separator] = s.Colors[ImGuiCol_Border];
-    s.Colors[ImGuiCol_FrameBg] = ImVec4(.098f, .09f, .082f, 1);
-    s.Colors[ImGuiCol_FrameBgHovered] = ImVec4(.24f, .20f, .16f, 1);
-    s.Colors[ImGuiCol_FrameBgActive] = ImVec4(.30f, .25f, .19f, 1);
-    s.Colors[ImGuiCol_Button] = ImVec4(.188f, .169f, .145f, 1);
-    s.Colors[ImGuiCol_ButtonHovered] = ImVec4(.30f, .25f, .19f, 1);
-    s.Colors[ImGuiCol_ButtonActive] = ImVec4(.40f, .30f, .19f, 1);
-    s.Colors[ImGuiCol_Header] = ImVec4(.36f, .16f, .13f, 1);
-    s.Colors[ImGuiCol_HeaderHovered] = ImVec4(.48f, .21f, .17f, 1);
-    s.Colors[ImGuiCol_HeaderActive] = ImVec4(.55f, .176f, .165f, 1);
-    s.Colors[ImGuiCol_Tab] = ImVec4(.16f, .14f, .12f, 1);
-    s.Colors[ImGuiCol_TabSelected] = ImVec4(141 / 255.f, 45 / 255.f, 42 / 255.f, 1);
-    s.Colors[ImGuiCol_TabHovered] = ImVec4(.48f, .21f, .17f, 1);
-    s.Colors[ImGuiCol_CheckboxSelectedBg] = ImVec4(.30f, .25f, .19f, 1);
+    s.Colors[ImGuiCol_Border] = white(.11f);
+    s.Colors[ImGuiCol_Separator] = white(.12f);
+    s.Colors[ImGuiCol_SeparatorHovered] = lit(.6f);
+    s.Colors[ImGuiCol_SeparatorActive] = amber();
+    s.Colors[ImGuiCol_FrameBg] = white(.06f);
+    s.Colors[ImGuiCol_FrameBgHovered] = white(.11f);
+    s.Colors[ImGuiCol_FrameBgActive] = lit(.24f);
+    s.Colors[ImGuiCol_Button] = white(.08f);
+    s.Colors[ImGuiCol_ButtonHovered] = white(.14f);
+    s.Colors[ImGuiCol_ButtonActive] = lit(.36f);
+    s.Colors[ImGuiCol_Header] = lit(.20f);
+    s.Colors[ImGuiCol_HeaderHovered] = lit(.30f);
+    s.Colors[ImGuiCol_HeaderActive] = lit(.40f);
+    s.Colors[ImGuiCol_Tab] = white(.04f);
+    s.Colors[ImGuiCol_TabHovered] = white(.13f);
+    s.Colors[ImGuiCol_TabSelected] = lit(.20f);
+    s.Colors[ImGuiCol_CheckboxSelectedBg] = lit(.24f);
     s.Colors[ImGuiCol_TabDimmed] = s.Colors[ImGuiCol_Tab];
     s.Colors[ImGuiCol_TabDimmedSelected] = s.Colors[ImGuiCol_TabSelected];
-    s.Colors[ImGuiCol_TabSelectedOverline] = gold();
-    s.Colors[ImGuiCol_TabDimmedSelectedOverline] = gold();
-    s.Colors[ImGuiCol_TextSelectedBg] = ImVec4(.84f, .68f, .32f, .35f);
-    s.Colors[ImGuiCol_CheckMark] = gold();
-    s.Colors[ImGuiCol_SliderGrab] = gold();
-    s.Colors[ImGuiCol_SliderGrabActive] = ImVec4(.94f, .77f, .41f, 1);
-    s.Colors[ImGuiCol_NavCursor] = gold();
+    s.Colors[ImGuiCol_TabSelectedOverline] = amber();
+    s.Colors[ImGuiCol_TabDimmedSelectedOverline] = amber();
+    s.Colors[ImGuiCol_TableHeaderBg] = white(.05f);
+    s.Colors[ImGuiCol_TableBorderStrong] = white(.12f);
+    s.Colors[ImGuiCol_TableBorderLight] = white(.07f);
+    s.Colors[ImGuiCol_TableRowBgAlt] = white(.025f);
+    s.Colors[ImGuiCol_ScrollbarBg] = white(0);
+    s.Colors[ImGuiCol_ScrollbarGrab] = white(.14f);
+    s.Colors[ImGuiCol_ScrollbarGrabHovered] = white(.22f);
+    s.Colors[ImGuiCol_ScrollbarGrabActive] = lit(.7f);
+    s.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, .6f);
+    s.Colors[ImGuiCol_TextSelectedBg] = lit(.35f);
+    s.Colors[ImGuiCol_CheckMark] = amber();
+    s.Colors[ImGuiCol_SliderGrab] = amber();
+    s.Colors[ImGuiCol_SliderGrabActive] = ImVec4(.95f, .6f, .31f, 1);
+    s.Colors[ImGuiCol_NavCursor] = amber();
     s.ScaleAllSizes(scale);
     s.FontScaleMain = scale;
 }
@@ -99,6 +120,22 @@ void heading(const char *text, float size)
     ImGui::PushFont(display_font, size / ImGui::GetStyle().FontScaleMain);
     ImGui::TextUnformatted(text);
     ImGui::PopFont();
+}
+void section(const char *text)
+{
+    char upper[128];
+    size_t n = 0;
+    for (; text[n] && n < sizeof upper - 1; n++)
+        upper[n] = (char)toupper((unsigned char)text[n]);
+    upper[n] = 0;
+    float s = ImGui::GetStyle().FontScaleMain;
+    // Room above it, except at the top of a page or panel.
+    if (ImGui::GetCursorPosY() > ImGui::GetStyle().WindowPadding.y + ImGui::GetScrollY() + 1)
+        ImGui::Dummy(ImVec2(0, 4 * s));
+    ImGui::PushStyleColor(ImGuiCol_Text, amber());
+    heading(upper, 17 * s);
+    ImGui::PopStyleColor();
+    ImGui::Separator();
 }
 void brickwork(ImVec2 a, ImVec2 size, float s)
 {
@@ -186,14 +223,15 @@ bool accent_button(const char *text, ImVec2 size, float font_size, ImVec4 fill, 
 }
 bool play_button(const char *text, ImVec2 size, float font_size)
 {
-    ImGui::PushStyleColor(ImGuiCol_Button, fight_red());
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.98f, .36f, .25f, 1));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(.78f, .21f, .13f, 1));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(.071f, .071f, .071f, 1));
+    ImGui::PushStyleColor(ImGuiCol_Button, amber());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.95f, .6f, .31f, 1));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(.72f, .38f, .12f, 1));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(.071f, .055f, .043f, 1));
+    ImGui::PushStyleColor(ImGuiCol_Border, amber());
     ImGui::PushFont(display_font, font_size);
     bool hit = ImGui::Button(text, size);
     ImGui::PopFont();
-    ImGui::PopStyleColor(4);
+    ImGui::PopStyleColor(5);
     return hit;
 }
 } // namespace pcui

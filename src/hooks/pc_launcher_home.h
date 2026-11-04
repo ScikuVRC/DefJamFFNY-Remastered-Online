@@ -13,5 +13,8 @@ UiHomeResult ui_launcher_home(float width, float height, const char *focus = nul
 // focus to, coming back from a page.
 bool ui_launcher_cinematic_fits(float width, float height);
 UiHomeResult ui_launcher_cinematic(const char *focus = nullptr);
+// Home's city behind the whole current window, dimmed by `shade` (0 none, 1 black), so the
+// settings pages read as the same place.
+void ui_launcher_backdrop(float shade);
 void ui_home_fields();
 void ui_home_devices();

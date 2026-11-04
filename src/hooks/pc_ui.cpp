@@ -712,7 +712,7 @@ static void settings_group(const char *section, std::initializer_list<const char
 
 static void page_display()
 {
-    ImGui::SeparatorText("Window and picture");
+    pcui::section("Window and picture");
     settings_group("display", { "fullscreen", "window_width", "window_height", "aspect" });
     if (recomp_settings_get("display", "aspect", 0) >= 2) {
         /* A widescreen shape: its own options, under it. */
@@ -725,9 +725,9 @@ static void page_display()
         ImGui::Unindent();
     }
     settings_group("display", { "filter", "vsync" });
-    ImGui::SeparatorText("Quality");
+    pcui::section("Quality");
     settings_group("display", { "render_scale" });
-    ImGui::SeparatorText("Picture");
+    pcui::section("Picture");
     settings_group("display", { "brightness", "gamma", "vignette" });
     if (recomp_settings_get("display", "vignette", 1)) {
         ImGui::Indent();
@@ -791,7 +791,7 @@ static void page_textures()
     refresh_packs();
     bool locked = find("textures", "packs")->source == RECOMP_SETTING_FROM_ENV;
     bool language_locked = find("language", "pack")->source == RECOMP_SETTING_FROM_ENV;
-    ImGui::SeparatorText("Installed mods");
+    pcui::section("Installed mods");
     if (pcui::mod_recovery_needed()) {
         ImGui::TextWrapped("An interrupted installation needs recovery before Play. If recovery fails, files are preserved in the data folder under mod-manager; see the status below.");
         ImGui::BeginDisabled(!launcher || pcui::mod_busy());
@@ -947,7 +947,7 @@ static void page_textures()
         ImGui::EndPopup();
     }
     if (!g_pack_status.empty()) ImGui::TextWrapped("%s",g_pack_status.c_str());
-    ImGui::SeparatorText("Project catalogue");
+    pcui::section("Project catalogue");
     if (!launcher) ImGui::TextWrapped("Return to the launcher to download, update or remove mods. Current packs stay in use during this game.");
     ImGui::BeginDisabled(!launcher || pcui::mod_busy());
     bool testing_versions = pcui::mod_prerelease();
@@ -1078,7 +1078,7 @@ static void draw_stick(const char *id, float x, float y, float radius)
 
 static void page_controllers()
 {
-    ImGui::SeparatorText("Players");
+    pcui::section("Players");
     InputPadMap map;
     pc_input_current_padmap(&map);
     for (int slot = 0; slot < 4; slot++) {
@@ -1119,14 +1119,14 @@ static void page_controllers()
     }
     ImGui::TextWrapped("Press buttons and push the sticks to check them. The circles show the sticks after the dead zones below.");
 
-    ImGui::SeparatorText("Who plays");
+    pcui::section("Who plays");
     settings_group("input", { "keyboard_player", "players", "backend" });
-    ImGui::SeparatorText("Sticks and triggers");
+    pcui::section("Sticks and triggers");
     settings_group("gamepad", { "left_deadzone", "right_deadzone", "trigger_threshold", "button_threshold",
                                 "left_stick", "right_stick" });
-    ImGui::SeparatorText("Rumble");
+    pcui::section("Rumble");
     settings_group("input", { "rumble", "rumble_floor", "rumble_min_ms", "rumble_on_connect" });
-    ImGui::SeparatorText("Pointer");
+    pcui::section("Pointer");
     settings_group("input", { "hide_cursor", "confine_cursor" });
 }
 
@@ -1245,11 +1245,11 @@ static void open_folder()
 }
 static void page_general(UiMode mode)
 {
-    ImGui::SeparatorText("Start-up");
+    pcui::section("Start-up");
     settings_group("launcher", { "skip" });
     if (mode == UI_OVERLAY)
         ImGui::TextWrapped("With the launcher skipped, hold Shift while the game starts, or start it with --launcher, to see it again.");
-    ImGui::SeparatorText("In-game overlay");
+    pcui::section("In-game overlay");
     {
         RecompSetting *k = find("ui", "overlay_key");
         if (k) {
@@ -1271,7 +1271,7 @@ static void page_general(UiMode mode)
                            "example left_stick_click+right_stick_click) is held for half a second. While it is open the game "
                            "sees no input and keeps running.");
     }
-    ImGui::SeparatorText("Language and subtitles");
+    pcui::section("Language and subtitles");
     settings_group("language", { "game", "story_subtitles" });
     if (!get_text("language", "pack").empty())
         ImGui::TextWrapped("A language mod is on (Mods page), so the game uses its language; the game language "
@@ -1280,9 +1280,9 @@ static void page_general(UiMode mode)
                        "menu icons in English. The game has English subtitles for every Story cutscene but shows "
                        "them only in the opening one (in French, in all of them). Choose all cutscenes to see them "
                        "everywhere; a language mod asks for them itself. Both apply on the next launch.");
-    ImGui::SeparatorText("Appearance");
+    pcui::section("Appearance");
     settings_group("ui", { "scale" });
-    ImGui::SeparatorText("Startup movies");
+    pcui::section("Startup movies");
     settings_group("debug", {"skip_intro"});
     ImGui::TextWrapped("Start at Press Start. Story cutscenes still play. Applies on the next launch.");
 }
@@ -1295,7 +1295,7 @@ static void page_maintenance(UiMode mode)
     {
         ImGui::PushID(i);
         auto path = pcui::folder_path(paths[i]);
-        ImGui::SeparatorText(names[i]);
+        pcui::section(names[i]);
         ImGui::TextWrapped("%s", path.empty() ? "Not available for this run" : path.c_str());
         if (ImGui::Button("Open"))
             pcui::open_path(path, i == 4);
@@ -1305,7 +1305,7 @@ static void page_maintenance(UiMode mode)
         ui_target((std::string("Copy ") + names[i]).c_str());
         ImGui::PopID();
     }
-    ImGui::SeparatorText("Update / Repair");
+    pcui::section("Update / Repair");
     if (mode == UI_OVERLAY)
         ImGui::TextWrapped("Close the game and open Update / Repair in the launcher to continue in Setup.");
     else
@@ -1316,7 +1316,7 @@ static void page_maintenance(UiMode mode)
     ImGui::TextWrapped("Setup: %s", pcui::setup_path().empty() ? "not selected" : pcui::setup_path().c_str());
     ImGui::TextWrapped("Use Update / Repair on the launcher's Home screen to open the wizard and close the "
                        "game. Setup verifies releases and builds your dump locally.");
-    ImGui::SeparatorText("Files");
+    pcui::section("Files");
     ImGui::TextWrapped("Settings are saved as you change them in: %s", pc_settings_path());
     if (ImGui::Button(k_show_file_label)) open_folder();
     ImGui::SameLine();
@@ -1338,21 +1338,21 @@ static void page_maintenance(UiMode mode)
         if (ImGui::Button("Cancel")) { confirm_reset = false; ImGui::CloseCurrentPopup(); }
         ImGui::EndPopup();
     }
-    ImGui::SeparatorText("About");
+    pcui::section("About");
     ImGui::Text("Def Jam: Fight for NY - Recompiled, version %s", DEFJAM_VERSION);
     ImGui::TextDisabled("Dear ImGui %s (MIT)  -  SDL3 (zlib)", IMGUI_VERSION);
 }
 
 static void page_debug(UiMode mode)
 {
-    ImGui::SeparatorText("Developer tools");
+    pcui::section("Developer tools");
     settings_group("debug", {"unlock_all"});
     ImGui::TextWrapped("For testing: unlocks fighters and venues and can save the change to your profile. "
                        "Keep off for a save you care about.");
-    ImGui::SeparatorText("Texture authoring");
+    pcui::section("Texture authoring");
     settings_group("textures", {"dump", "dump_limit"});
     ImGui::TextWrapped("Source captures go to hd-work/runtime. Turn capture off when finished.");
-    ImGui::SeparatorText("Play-test recorder");
+    pcui::section("Play-test recorder");
     settings_group("debug", { "record" });
     ImGui::TextWrapped("Keeps logs/sessions/<time>/ for every run: each frame's timing, what the game was doing, the sound, "
                        "and the last seconds of pictures. The mark key, the mark pad buttons (View and the left stick "
@@ -1366,7 +1366,7 @@ static void page_debug(UiMode mode)
     if (mode == UI_OVERLAY) {
         char status[1024];
         recorder_status(status, sizeof status);
-        ImGui::SeparatorText("This run");
+        pcui::section("This run");
         ImGui::TextWrapped("%s", status);
         if (recorder_on()) {
             if (ImGui::Button("Mark a bug here")) recorder_mark("overlay");
@@ -1376,7 +1376,7 @@ static void page_debug(UiMode mode)
         }
 
         /* Story scenes through the game's developer module (src/hooks/dev_module.c, scene_launcher.c). */
-        ImGui::SeparatorText("Story scenes");
+        pcui::section("Story scenes");
         static int pick = 0;
         int count = scene_launcher_count();
         if (count <= 0) {
@@ -1485,7 +1485,7 @@ static void my_fighter_combo(const NetplayMatch &m, int slot, const NetplayChoic
         return;
     if (profile_count > 0)
     {
-        ImGui::SeparatorText("Your created fighters");
+        pcui::section("Your created fighters");
         for (int i = 0; i < profile_count; i++)
         {
             bool selected = m.fighter[slot] == NETPLAY_CREATED_FIGHTER && !strcmp(m.profile[slot], profiles[i]);
@@ -1496,7 +1496,7 @@ static void my_fighter_combo(const NetplayMatch &m, int slot, const NetplayChoic
             if (ImGui::Selectable(buf, selected, used ? ImGuiSelectableFlags_Disabled : 0) && !selected)
                 netplay_pick_created(profiles[i]);
         }
-        ImGui::SeparatorText("Fighters");
+        pcui::section("Fighters");
     }
     for (int i = 0; i < count; i++)
     {
@@ -1554,7 +1554,7 @@ static void ui_online_match(UiResult &result, float width, float scale)
         ImGui::SetNextItemWidth(field);
         if (ImGui::InputText("Your name", name, sizeof name))
             netplay_set_name(name);
-        ImGui::SeparatorText("Host a lobby");
+        pcui::section("Host a lobby");
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
         ImGui::InputText("Port", port, sizeof port, ImGuiInputTextFlags_CharsDecimal);
         ImGui::SameLine();
@@ -1564,7 +1564,7 @@ static void ui_online_match(UiResult &result, float width, float scale)
             netplay_host((uint16_t)atoi(port));
         }
         ui_target("OnlineHost");
-        ImGui::SeparatorText("Join a lobby");
+        pcui::section("Join a lobby");
         ImGui::SetNextItemWidth(field);
         ImGui::InputTextWithHint("Address", "host:7777", address, sizeof address);
         ImGui::SameLine();
@@ -1704,7 +1704,7 @@ static void ui_online_match(UiResult &result, float width, float scale)
                                type ? type->name : "this match", fit);
 
         // The match: the host chooses, everyone sees it.
-        ImGui::SeparatorText("Match");
+        pcui::section("Match");
         ImGui::BeginDisabled(!hosting);
         ImGui::SetNextItemWidth(field);
         if (ImGui::BeginCombo("Match type", type ? type->name : "?"))
@@ -1918,16 +1918,21 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
         ImGui::End();
         return result;
     }
-    const char *brand = tight ? "DEF JAM" : "DEF JAM RECOMPILED";
-    float header_width = ImGui::CalcTextSize(brand).x +
-                         ImGui::CalcTextSize("/ v" DEFJAM_VERSION).x + ImGui::GetStyle().ItemSpacing.x;
-    bool version_inline = header_width < ImGui::GetContentRegionAvail().x;
-    ImGui::TextUnformatted(brand);
-    if (version_inline)
-        ImGui::SameLine();
-    ImGui::TextDisabled("/ v%s", DEFJAM_VERSION);
-    ImGui::Separator();
     bool advanced = mode == UI_OVERLAY || g_advanced;
+    if (mode == UI_LAUNCHER && g_advanced)
+        ui_launcher_backdrop(.8f);      // Home's city behind the pages, dimmed; the header row says where
+    else
+    {
+        const char *brand = tight ? "DEF JAM" : "DEF JAM REMASTERED";
+        float header_width = ImGui::CalcTextSize(brand).x +
+                             ImGui::CalcTextSize("/ v" DEFJAM_VERSION).x + ImGui::GetStyle().ItemSpacing.x;
+        bool version_inline = header_width < ImGui::GetContentRegionAvail().x;
+        ImGui::TextUnformatted(brand);
+        if (version_inline)
+            ImGui::SameLine();
+        ImGui::TextDisabled("/ v%s", DEFJAM_VERSION);
+        ImGui::Separator();
+    }
     bool compact_footer = height < 600 * scale && pcui::action_status().empty();
     float footer = ImGui::GetFrameHeightWithSpacing() * (compact_footer ? 1.0f : 2.1f) +
                    (compact_footer && tight ? 8 : 25) * scale;
@@ -1944,18 +1949,32 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
         bool compact_header = height < 500 * scale;
         if (mode == UI_LAUNCHER)
         {
-            if (ImGui::Button(compact_header ? "< Back" : "< Back to launcher"))
+            if (ImGui::Button("< Home"))
             {
                 g_advanced = false;
                 ImGui::SetScrollY(0);
                 g_return_focus = true;
             }
             ui_target("Back");
-            if (compact_header || width > 650 * scale)
-                ImGui::SameLine();
+            ImGui::SameLine(0, 18 * scale);
         }
         if (!compact_header)
-            pcui::heading("ADVANCED SETTINGS", 24 * scale);
+        {
+            // The heading centred on the button's line, the version at its right end.
+            float size = 28 * scale;
+            float rise = (ImGui::GetFrameHeight() - pcui::display()->CalcTextSizeA(size, FLT_MAX, 0, "SETTINGS").y) * .5f;
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + rise);
+            pcui::heading("SETTINGS", size);
+            const char *version = "v" DEFJAM_VERSION;
+            float right = ImGui::GetContentRegionMax().x - ImGui::CalcTextSize(version).x;
+            if (mode == UI_LAUNCHER && right > ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + 40 * scale)
+            {
+                ImGui::SameLine(right);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("%s", version);
+            }
+            ImGui::Spacing();
+        }
         bool popup = ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
         if (!ui_capturing() && !popup)
         {
@@ -1991,7 +2010,8 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
             }
             ui_target("Category");
         }
-        else if (ImGui::BeginTabBar("categories", ImGuiTabBarFlags_NoCloseWithMiddleMouseButton))
+        else if (ImGui::BeginTabBar("categories",
+                                    ImGuiTabBarFlags_NoCloseWithMiddleMouseButton | ImGuiTabBarFlags_DrawSelectedOverline))
         {
             int requested = g_page;
             for (int i = 0; i < 6; i++)
@@ -2012,7 +2032,7 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
         bool inspector = ImGui::GetContentRegionAvail().x >= 900 * scale;
         ImGui::BeginChild("settings content",
                           ImVec2(inspector ? ImGui::GetContentRegionAvail().x - 280 * scale : 0, 0),
-                          ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground);
+                          ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding);
         switch (g_page)
         {
         case 0:
@@ -2071,27 +2091,33 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
     // Keep actions reachable even at 250% text scale; the body scrolls independently.
     if (mode == UI_LAUNCHER)
     {
-        if (ImGui::Button("Quit"))
-            result.leave = true;
-        ui_target("Quit");
-        ImGui::SameLine();
-        if (advanced || width < 900 * scale)
-        {
-            ImGui::BeginDisabled(pcui::mod_busy() || pcui::mod_recovery_needed());
-            if (pcui::play_button("PLAY", ImVec2(100 * scale, 0),
-                                  tight ? ImGui::GetFontSize() / scale : 30.0f))
-                result.play = true;
-            ui_target("Play");
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-        }
+        // The skip choice at the left; Quit and PLAY, the ways out and in, at the right, all on
+        // PLAY's taller line.
+        const ImGuiStyle &style = ImGui::GetStyle();
+        bool play_here = advanced || width < 900 * scale;
+        float font = tight ? ImGui::GetFontSize() / scale : 30.0f;
+        float line = pcui::display()->CalcTextSizeA(font * scale, FLT_MAX, 0, "PLAY").y + style.FramePadding.y * 2;
+        float play_w = 120 * scale, quit_w = ImGui::CalcTextSize("Quit").x + style.FramePadding.x * 2;
+        float top = ImGui::GetCursorPosY();
+        ImGui::SetCursorPosY(top + (line - ImGui::GetFrameHeight()) * .5f);
         if (!compact_footer)
             setting_widget(find("launcher", "skip"), "Skip launcher next time");
         else
+            ImGui::TextDisabled("Saved");
+        ImGui::SameLine();
+        float right = ImGui::GetContentRegionMax().x - quit_w - (play_here ? style.ItemSpacing.x + play_w : 0);
+        ImGui::SetCursorPos(ImVec2(std::max(right, ImGui::GetCursorPosX()), top));
+        if (ImGui::Button("Quit", ImVec2(quit_w, line)))
+            result.leave = true;
+        ui_target("Quit");
+        if (play_here)
         {
-            const char *status = mode == UI_LAUNCHER || restart.empty() ? "Saved" : "Next launch";
-            if (ImGui::GetContentRegionAvail().x >= ImGui::CalcTextSize(status).x)
-                ImGui::TextDisabled("%s", status);
+            ImGui::SameLine();
+            ImGui::BeginDisabled(pcui::mod_busy() || pcui::mod_recovery_needed());
+            if (pcui::play_button("PLAY", ImVec2(play_w, line), font))
+                result.play = true;
+            ui_target("Play");
+            ImGui::EndDisabled();
         }
     }
     else

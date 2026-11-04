@@ -34,7 +34,8 @@ a **Play** button, which starts the game as before, and the common choices: disp
 picture shape, render scale, VSync and local HD textures, with **Configure controls**.
 
 **Settings** (Advanced) opens all settings in the same window. **Mods** opens its texture-pack page
-directly. **Back to launcher**, Escape or the pad's B button returns to Home, except while capturing a
+directly. The pages share Home's look: its city dimmed behind them, amber for what is chosen.
+**< Home**, Escape or the pad's B button returns to Home, except while capturing a
 binding or using a popup. **Open Logs**, **Open Folder** and **Update / Repair** are on the compact Home.
 Enlarged text/narrow windows use a compact title and a category selector. The body scrolls; footer
 actions remain available. Short windows with large text use a compact footer; the skip preference

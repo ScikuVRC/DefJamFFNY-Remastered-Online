@@ -529,6 +529,17 @@ void quit_question(UiHomeResult &r, float s)
 }
 } // namespace
 
+void ui_launcher_backdrop(float shade)
+{
+    float s = ImGui::GetStyle().FontScaleMain;
+    ImVec2 a = ImGui::GetWindowPos(), size = ImGui::GetWindowSize(), b(a.x + size.x, a.y + size.y);
+    ImDrawList *d = ImGui::GetWindowDrawList();
+    d->PushClipRect(a, b, false);
+    backdrop(d, a, b, s);
+    d->AddRectFilled(a, b, ground((int)(255 * std::clamp(shade, 0.f, 1.f))));
+    d->PopClipRect();
+}
+
 bool ui_launcher_cinematic_fits(float width, float height)
 {
     float s = ImGui::GetStyle().FontScaleMain;
