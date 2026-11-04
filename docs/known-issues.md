@@ -17,8 +17,9 @@ Issue numbers below (#98 and so on) are from the original project's tracker.
   LAN (such as Radmin VPN) and join the host's address on it.
 - **The background crowd can differ** between the players' screens. The fighters and the fight
   stay in step (the games compare the fight state every second).
-- **Created fighters online** have not been tried with two players whose profiles share a name,
-  or with a fighter whose parts come from a mod.
+- **Created fighters online** whose parts come from a mod have not been tried. Two players whose
+  profiles share a name both bring their own (the other's shows as MARC2 and so on on each
+  screen); checked with two games on one PC, a fight of 13,000 steps in sync.
 - **A loading stall** happened once going into Story from the launcher's Continue; twelve
   later starts were fine.
 - **Setup from this repository**: v0.14.0 is its first release here. A Clean Update from it to a

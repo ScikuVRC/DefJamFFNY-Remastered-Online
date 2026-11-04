@@ -51,7 +51,8 @@ same network, and gone again after leaving the lobby; not yet joined from outsid
 2. **Fighter select.** Each player picks their own fighter: any of the game's, or
    **Created: <profile>**, the created fighter of one of their own profiles (the
    saves in their data folder). The host picks the CPU's fighters for free slots. A
-   fighter (or a profile) can be in a match once. Each player ticks **Lock in my
+   game fighter can be in a match once; created fighters can share a profile name
+   (each player's is their own). Each player ticks **Lock in my
    fighter**; when everyone has, the host presses **Start match**.
 3. Every launcher closes and every game goes straight into the match: the legal screen
    and the startup movies are skipped whatever the skip-intro setting, and on the title
@@ -95,10 +96,13 @@ unlocks, and whatever the game saves during and after the session (earnings, unl
 the options) stays theirs. The other players' profiles are added to the player's save
 folder for the session (`place_saves`), listed in `<data>/save/netplay-guests.txt`, and
 taken out when the game closes, or at the next start after a crash. A profile the
-player already has with the same contents is used as it is; one with the same name and
-other contents is the player's own save, and then, so as to touch neither, that game
-plays the match from a session folder of its own (`<data>/save/netplay-session-<player>`,
-`RECOMP_SAVE_DIR`: the match's profiles and the player's own options).
+player already has with the same contents is used as it is. Profiles may share a name:
+two friends can both be MARC. A game never renames its own player's profile; another
+player's whose name it already has (its player's own MARC, or another MARC of the match)
+is added under another name, MARC2, MARC3 and so on (`netplay_saves.c`: the name in the
+save, its `SaveMeta.xbx` and its folder, and the save's signatures). So on each screen
+your fighter has your profile's name and the other may show as MARC2; the fight is the
+same (checked with two games whose MARCs differ: 2026-11-04).
 
 A slot's profile is a user number in the game's list, which follows the order of the
 save folders (checked with three profiles whose folder and name orders differ:
@@ -142,7 +146,7 @@ each joiner's in-game messages on to the others. Text lines (protocol 2):
    <phase> <ready mask> <name0..3> <profile0..3>` whenever it changes; a joiner sends
    `READYUP <0|1>` and `PICK <fighter> [<profile>]` (profiles in hex; `-` is none).
 3. The host starts: `MATCH <seed> <type> <rules> <venue> <slots> <f0..f3> <t0..t3>
-   <o0..o3> <profile0..3>`. The saves follow (`FILE <folder> <name> <size>`, `DATA
+   <o0..o3> <profile0..3>`. The saves follow (`FILE <player> <folder> <name> <size>`, `DATA
    <hex>`..., `END`; a joiner ends its own with `SENT`, the host its with `FILES`), then
    each joiner `READY` and the host `GO`.
 4. Every game sets lockstep mode with that seed, the session's save folder and the
