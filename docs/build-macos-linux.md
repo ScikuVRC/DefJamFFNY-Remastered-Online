@@ -32,8 +32,8 @@ copies cannot be used.
 ## Get the source
 
 ```bash
-git clone --recursive 
-cd DefJamFFNY-recomp
+git clone --recursive https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online.git
+cd DefJamFFNY-Remastered-Online
 ```
 
 The toolkit is a submodule; without `--recursive`, run

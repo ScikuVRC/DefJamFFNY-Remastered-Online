@@ -6,7 +6,7 @@
     "Def Jam Remastered"
   ],
   "licence": "Derived game artwork; rights remain with their respective owners. The project source MIT licence does not cover this artwork.",
-  "homepage": "https://github.com/ScikuVRC/DefJamFFNY-recomp",
+  "homepage": "https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online",
   "revoked_versions": [],
   "versions": [
     {
@@ -27,7 +27,7 @@
       ],
       "archive": {
         "urls": [
-          "https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/download/mods/menu-ui-hd-wide-1.4.0.zip"
+          "https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/releases/download/mods/menu-ui-hd-wide-1.4.0.zip"
         ],
         "size": 601895156,
         "unpacked_size": 605772797,

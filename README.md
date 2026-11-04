@@ -62,7 +62,7 @@ USA Xbox copy of the game**. Nothing from the game is in this repository.
    [supported dump manifest](config/dump-manifest.json). PS2 and GameCube copies cannot be
    played (but their saves can be imported).
 2. Download **Def Jam Setup** (`DefJamSetup-<version>-windows-x64.exe`) from the
-   [latest release](https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/latest), run it and
+   [latest release](https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/releases/latest), run it and
    pick your copy. Setup builds the game from it on your own machine (it brings its own Python
    and installs Microsoft's build tools if you allow it). Or build from source yourself:
    [Build and play](docs/build-and-play.md).

@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        The README's roadmap and the [improvement backlog](https://github.com/ScikuVRC/DefJamFFNY-recomp/blob/main/docs/04-improvement-backlog.md)
+        The README's roadmap and the [improvement backlog](https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/blob/main/docs/04-improvement-backlog.md)
         list what is already planned.
   - type: textarea
     id: want

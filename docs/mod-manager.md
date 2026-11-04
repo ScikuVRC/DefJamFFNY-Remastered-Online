@@ -71,7 +71,7 @@ scale/layout against a source texture seen in the game. Never treat a validator
 pass as proof that a visual mapping is correct.
 
 The catalogue is `catalogue.json` (and its signature, `catalogue.json.sig`) on the
-[`mods` release](https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/tag/mods) of this
+[`mods` release](https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/releases/tag/mods) of this
 repository, beside the pack zips it lists. Its records are kept in
 `config/mods/catalogue/<id>.json`; the zips and the signing key are not in the repository.
 

@@ -25,7 +25,7 @@ import urllib.request
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-REPO = 'ScikuVRC/DefJamFFNY-recomp'
+REPO = 'ScikuVRC/DefJamFFNY-Remastered-Online'
 TAG = 'mods'
 DOWNLOAD = f'https://github.com/{REPO}/releases/download/{TAG}/'
 RECORDS = ROOT / 'config/mods/catalogue'

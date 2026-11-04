@@ -12,8 +12,8 @@
     { "name": "ScikuVRC", "link": "https://github.com/ScikuVRC" }
   ],
   "links": [
-    { "label": "Repository", "url": "https://github.com/ScikuVRC/DefJamFFNY-recomp" },
-    { "label": "Docs", "url": "https://github.com/ScikuVRC/DefJamFFNY-recomp/blob/main/docs/README.md" }
+    { "label": "Repository", "url": "https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online" },
+    { "label": "Docs", "url": "https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/blob/main/docs/README.md" }
   ],
   "tags": ["fighting", "widescreen", "hd-textures", "steam-deck"]
 }

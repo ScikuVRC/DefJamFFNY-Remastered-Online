@@ -72,7 +72,7 @@ History does not establish when that PC first encountered the bad placement.
 
 Primary source links: [toolkit fallback change](https://github.com/ScikuVRC/xboxrecomp/commit/75119d5),
 [Windows reservation cleanup](https://github.com/ScikuVRC/xboxrecomp/commit/9547d39),
-[AC97 initialization in v0.1.0](https://github.com/ScikuVRC/DefJamFFNY-recomp/blob/main/src/hooks/ac97_bm.c#L134-L151).
+[AC97 initialization in v0.1.0](https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/blob/main/src/hooks/ac97_bm.c#L134-L151).
 
 In plain language: the port found a place for Xbox RAM but did not check that
 the other memory areas needed by the emulated devices could fit around it.

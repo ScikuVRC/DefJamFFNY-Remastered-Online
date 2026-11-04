@@ -32,7 +32,7 @@ import mod_catalogue as contract
 
 # The project catalogue: an asset of this repository's "mods" release, signed with the key in
 # config/mods/catalogue-keys.json (scripts/publish-mods.py publishes it).
-CATALOGUE_URL = 'https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/download/mods/catalogue.json'
+CATALOGUE_URL = 'https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/releases/download/mods/catalogue.json'
 KEYS = Path(__file__).resolve().parents[1] / 'config/mods/catalogue-keys.json'
 MAX_INDEX = 8 * 1024**2
 MAX_FILE = 512 * 1024**2

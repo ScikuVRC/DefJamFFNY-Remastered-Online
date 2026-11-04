@@ -1876,7 +1876,7 @@ static void launcher_dialogs(UiResult &result, float width, float height, float 
         if (width > 650 * scale)
             ImGui::SameLine();
         if (ImGui::Button("Download Setup"))
-            pcui::open_path("https://github.com/ScikuVRC/DefJamFFNY-recomp/releases/latest");
+            pcui::open_path("https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/releases/latest");
         ImGui::BeginDisabled(!pcui::setup_ready());
         if (ImGui::Button("Open Setup"))
         {
