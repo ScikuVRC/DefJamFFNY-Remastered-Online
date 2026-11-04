@@ -5,7 +5,7 @@ routes cover menus, setup, a fight, Story intro/creator, crib/gym and Unlock
 Fighters selection. They do not cover every mode or a full Story campaign.
 Issue numbers below (#98 and so on) are from the original project's tracker.
 
-## v0.14.1
+## v0.14.2
 
 - **Online play uses TCP.** A lost packet stalls both games until it is resent; on a poor
   connection the fight can hitch.
@@ -15,14 +15,15 @@ Issue numbers below (#98 and so on) are from the original project's tracker.
   connection to the public address reached the lobby, the port was closed again). If a friend
   cannot join, read the lobby's router line; forward TCP port 7777 by hand, or use a virtual
   LAN (such as Radmin VPN) and join the host's address on it.
-- **The background crowd can differ** between the players' screens. The fighters and the fight
-  stay in step (the games compare the fight state every second).
+- **The background crowd** is the same on every player's screen since v0.14.2 (two games, one
+  with HD packs: equal at all 18,622 steps of a match). Before, it could differ; the fight
+  never did.
 - **Created fighters online**: two players whose profiles share a name both bring their own
   (the other's shows as MARC2 and so on on each screen); checked with two games on one PC, a
   fight of 13,000 steps in sync. HD texture packs on one player's game only change nothing in
   the fight: created fighters on both sides, HD Fighters and HD Widescreen Menus on the host
   only, 18,000 steps in sync. File mods (models, game data) must be the same for everyone.
-- **A start-up hang on the LOADING screen** (fixed after v0.14.1; seen with HD packs on, and
+- **A start-up hang on the LOADING screen** (fixed in v0.14.2; seen with HD packs on, and
   with two games on one PC): the main thread, raised to priority 21 by Windows while it spins
   in Direct3D's wait for buffer space (`sub_0021EC50`), kept the game's other threads, which
   share its one core, from ever running. A watcher now lets a thread starved there for 600 ms
