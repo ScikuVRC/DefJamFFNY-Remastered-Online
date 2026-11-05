@@ -9,7 +9,7 @@ game or game assets are distributed. Windows 11 x64 is the tested environment.
 Download `DefJamSetup-<version>-windows-x64.exe` from the
 [latest release](https://github.com/ScikuVRC/DefJamFFNY-Remastered-Online/releases/latest) (the
 launcher's **Update / Repair** > **Download Setup** opens the same page). The commands below
-use the v0.14.2 filename.
+use the v0.15.0 filename.
 
 1. Run the setup executable and select your ISO/XISO or extracted dump folder.
 2. Choose separate sibling folders, such as `D:\Games\DefJam\App` for the
@@ -37,7 +37,7 @@ saves/settings stay in the data folder.
 For silent mode in PowerShell:
 
 ```powershell
-$setupPath = (Resolve-Path .\DefJamSetup-0.14.2-windows-x64.exe).Path
+$setupPath = (Resolve-Path .\DefJamSetup-0.15.0-windows-x64.exe).Path
 $setupArguments = '--silent --dump "D:\Dumps\DefJam.iso" --install-dir "D:\Games\DefJam\App" --data-dir "D:\Games\DefJam\Data"'
 $setupResult = Start-Process -FilePath $setupPath -ArgumentList $setupArguments -Wait -PassThru
 $setupResult.ExitCode

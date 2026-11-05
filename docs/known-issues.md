@@ -5,7 +5,7 @@ routes cover menus, setup, a fight, Story intro/creator, crib/gym and Unlock
 Fighters selection. They do not cover every mode or a full Story campaign.
 Issue numbers below (#98 and so on) are from the original project's tracker.
 
-## v0.14.2
+## v0.15.0
 
 - **Online play uses TCP.** A lost packet stalls both games until it is resent; on a poor
   connection the fight can hitch.
