@@ -13,7 +13,7 @@ what the lit tile does, with the profile's own created fighter beside it for Con
 |---|---|
 | **Continue story** | Starts the game and goes straight to the profile's crib: the intro is skipped, and the title screen, the main menu and the Select User ID list are pressed through for you. Shows the profile's face, Story %, Story time, cash and when it was last saved, read from the save. With no profile it is **New story** and stops on Select User ID, where you create one. |
 | **Battle** | Straight to Choose Match Type. Each player picks a user ID after it, on the game's own screen. |
-| **Online** | Host or join an online match ([Online play](netplay.md)). |
+| **Online** | Host or join an online match, and your online record: rank, record, match history with replays, rivals ([Online play](netplay.md#your-record-and-replays)). |
 | **Main menu** | The game's own main menu, without the intro. |
 | **Profiles** | Choose whose story Continue picks up (`[launcher] profile`; empty means the most recently saved). |
 | **Mods** | The texture and file mod page. |
@@ -187,7 +187,8 @@ Off-by-default test hooks:
 | `RECOMP_INPUT_VIRTUAL_PADS`, `RECOMP_INPUT_VIRTUAL_CHORD_MS` | SDL virtual pad tests, including overlay stick-click/B paths ([input guide](10-input.md)) |
 
 Named UI targets include Advanced, Mods, Configure, Back, all six categories, Play, Quit, SetupOpen,
-Home's tiles (Continue, Battle, OnlineTile, MainMenu, Profiles, Mods), `Profile:<name>` in the picker, and
+Home's tiles (Continue, Battle, OnlineTile, MainMenu, Profiles, Mods), `Profile:<name>` in the picker,
+OnlineHistory, OnlineRivals and WatchNewest on the Online page, and
 setting keys such as `display.brightness` or `debug.unlock_all`, plus `pack.<folder>` and
 `pack.earlier.<folder>` / `pack.later.<folder>`. Targets scroll into view, then receive
 real SDL press/release events. A missing target is reported; tests do not change a setting directly.

@@ -365,6 +365,8 @@ void sub_001A6A80_enter(void)
 {
     if (defjam_test_observations_enabled())
         defjam_test_result(MEM32(g_esp + 4), MEM32(g_esp + 8), MEM32(g_esp + 12));
+    /* An online match's result, for the player's record (netplay_record.h). */
+    netplay_result(MEM32(g_esp + 4), MEM32(g_esp + 8), MEM32(g_esp + 12) & 0xFFFFu);
 }
 
 /* â”€â”€ ICALL trace ring buffer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */

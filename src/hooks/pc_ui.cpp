@@ -36,6 +36,7 @@
 #include "pc_ui_theme.h"
 #include "pc_ui_actions.h"
 #include "pc_launcher_home.h"
+#include "pc_launcher_online.h"
 #include "netplay.h"
 #include "netplay_router.h"
 #include "netplay_invite.h"
@@ -1622,6 +1623,8 @@ static void ui_online_match(UiResult &result, float width, float scale)
         }
         ui_target("OnlineJoin");
         ImGui::EndDisabled();
+        ImGui::Spacing();
+        ui_online_record(result, name, width, display.y, scale);
     }
     else if (in_lobby)
     {

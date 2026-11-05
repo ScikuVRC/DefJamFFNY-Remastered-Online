@@ -6,14 +6,15 @@
  * fight. The host is the hub: every joiner has one connection, to the host, and the
  * host passes each joiner's messages on to the others.
  *
- *   1. a joiner sends  HELLO <protocol> <version> <program> <game data> <name>
+ *   1. a joiner sends  HELLO <protocol> <version> <program> <game data> <name> <id>
  *      and the host answers WELCOME <player> or REFUSE <reason>: a different build
- *      or a different dump would play a different fight;
+ *      or a different dump would play a different fight. <id> is the player's
+ *      (netplay_record.h), for each game's record against the others;
  *   2. in the lobby the host sends LOBBY (the players, their ready flags, the phase
  *      and the match so far) whenever it changes; a joiner sends READYUP <0|1> and,
  *      once the host has moved the lobby to picking, PICK <fighter> [<profile>] for
  *      its own slot (a profile with fighter 99: that profile's created fighter);
- *   3. the host starts: MATCH <seed> <type> <rules> <venue> <slots> <fighters>
+ *   3. the host starts: IDS <id0> ... <id3>, then MATCH <seed> <type> <rules> <venue> <slots> <fighters>
  *      <teams> <owners> <profiles>. A joiner with a created fighter sends its profile's
  *      save (FILE <player> <folder> <name> <size>, DATA <hex>..., END), and every joiner then
  *      SENT; the host sends every joiner the created fighters' profiles the same way,
@@ -75,19 +76,21 @@ typedef int sock_t;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "launcher_start.h"
 #include "netplay.h"
 #include "netplay_router.h"
 #include "netplay_saves.h"
 #include "netplay_invite.h"
+#include "netplay_record.h"
 #include "recomp/gen/recomp_types.h"
 #include "test_observations.h"
 
 #ifndef DEFJAM_VERSION
 #define DEFJAM_VERSION "dev"
 #endif
-#define PROTOCOL        2
+#define PROTOCOL        3
 #define MAXP            NETPLAY_MAX_PLAYERS
 #define BARRIER_MS      120000      /* how long a game waits for the others at the first step */
 #define AGREE_MS        15000       /* how long the host waits for every READY */
@@ -141,6 +144,9 @@ static int s_lobby_dirty, s_pick_dirty, s_start_request, s_ready_dirty, s_ready_
 static char s_pick_profile[NETPLAY_PROFILE_LEN];
 static int s_wait_players = 2;      /* scripted host: start when this many are in */
 static char s_fp_program[24], s_fp_data[24];
+static char s_ids[NETPLAY_MAX_PLAYERS][ONLINE_ID_LEN];     /* each player's (netplay_record.h), "" unknown */
+static char s_replay_choice[1024];  /* the launcher's: a replay to watch */
+static int s_replaying;             /* this process plays a replay, not a session */
 
 /* The connections. On the host, s_peer[p] is player p's (none for 0, the host); on a
  * joiner, s_peer[0] is the host's. */
@@ -785,23 +791,24 @@ static sock_t connect_to(const char *address)
 }
 
 /* Why a HELLO cannot join, or NULL when it can. */
-static const char *hello_problem(const char *line, char *name)
+static const char *hello_problem(const char *line, char *name, char *id)
 {
-    char version[64], program[24], data[24], raw[64];
+    char version[64], program[24], data[24], raw[64], raw_id[40] = "";
     int protocol;
-    if (sscanf(line, "HELLO %d %63s %23s %23s %63s", &protocol, version, program, data, raw) != 5)
+    if (sscanf(line, "HELLO %d %63s %23s %23s %63s %39s", &protocol, version, program, data, raw, raw_id) < 5)
         return "not_Def_Jam_netplay";
     if (protocol != PROTOCOL || strcmp(version, DEFJAM_VERSION)) return "different_versions";
     if (strcmp(program, s_fp_program)) return "different_builds";
     if (strcmp(data, s_fp_data)) return "different_game_data";
     clean_name(name, raw);
+    online_clean_id(id, raw_id);
     return NULL;
 }
 
 /* The host: a caller at the listening socket. */
 static void host_accept(sock_t listener)
 {
-    char line[256], name[NETPLAY_NAME_LEN];
+    char line[256], name[NETPLAY_NAME_LEN], id[ONLINE_ID_LEN];
     const char *problem;
     sock_t sock = accept(listener, NULL, NULL);
     int p, slot = -1;
@@ -817,7 +824,7 @@ static void host_accept(sock_t listener)
     s_peer[slot] = sock;
     s_in_len[slot] = 0;
     if (recv_line(slot, line, sizeof line, 5000) != 1) { drop(slot); return; }
-    problem = hello_problem(line, name);
+    problem = hello_problem(line, name, id);
     if (problem) {
         fprintf(stderr, "[NETPLAY] refused a player: %s\n", problem);
         fflush(stderr);
@@ -828,6 +835,7 @@ static void host_accept(sock_t listener)
     send_to(slot, "WELCOME %d", slot);
     lock();
     snprintf(s_lobby.name[slot], sizeof s_lobby.name[slot], "%s", name);
+    snprintf(s_ids[slot], sizeof s_ids[slot], "%s", id);
     s_lobby.ready[slot] = 0;
     s_lobby.players++;
     settle_match(&s_lobby.match, &s_lobby);
@@ -843,6 +851,7 @@ static void host_lost(int p)
     lock();
     snprintf(name, sizeof name, "%s", s_lobby.name[p]);
     s_lobby.name[p][0] = 0;
+    s_ids[p][0] = 0;
     s_lobby.ready[p] = 0;
     s_lobby.players--;
     settle_match(&s_lobby.match, &s_lobby);
@@ -1274,6 +1283,11 @@ static int host_agree(void)
             set_state(NETPLAY_FAILED, "Could not read your profile %s", m.profile[i]);
             return 0;
         }
+    lock();
+    snprintf(line, sizeof line, "IDS %s %s %s %s", s_ids[0][0] ? s_ids[0] : "-", s_ids[1][0] ? s_ids[1] : "-",
+             s_ids[2][0] ? s_ids[2] : "-", s_ids[3][0] ? s_ids[3] : "-");
+    unlock();
+    send_all(-1, "%s", line);
     match_line(line, sizeof line, &m);
     send_all(-1, "%s", line);
     set_state(NETPLAY_HANDSHAKE, "Starting: gathering the created fighters");
@@ -1332,7 +1346,9 @@ static int join_session(void)
     int got, player;
     NetplayMatch m;
     set_state(NETPLAY_HANDSHAKE, "Connected: checking that the games match");
-    if (!send_to(0, "HELLO %d %s %s %s %s", PROTOCOL, DEFJAM_VERSION, s_fp_program, s_fp_data, s_name)) return 0;
+    if (!send_to(0, "HELLO %d %s %s %s %s %s", PROTOCOL, DEFJAM_VERSION, s_fp_program, s_fp_data, s_name,
+                 online_player_id()[0] ? online_player_id() : "-"))
+        return 0;
     while ((got = recv_line(0, line, sizeof line, 200)) == 0)
         if (s_cancel) return 0;
     if (got < 0) { set_state(NETPLAY_FAILED, "The host closed the connection"); return 0; }
@@ -1375,6 +1391,15 @@ static int join_session(void)
             lock();
             l = s_lobby;
             if (read_lobby_line(line, &l)) s_lobby = l;
+            unlock();
+        } else if (!strncmp(line, "IDS ", 4)) {
+            char ids[MAXP][40];
+            int i, n = sscanf(line, "IDS %39s %39s %39s %39s", ids[0], ids[1], ids[2], ids[3]);
+            lock();
+            for (i = 0; i < MAXP; i++) {
+                if (i < n) online_clean_id(s_ids[i], ids[i]);
+                else s_ids[i][0] = 0;
+            }
             unlock();
         } else if (!strncmp(line, "MATCH ", 6)) {
             memset(&m, 0, sizeof m);
@@ -1569,6 +1594,8 @@ static int start_session(void)
     }
     if (netplay_state() != NETPLAY_IDLE && netplay_state() != NETPLAY_FAILED) return 0;
     fingerprints();
+    memset(s_ids, 0, sizeof s_ids);
+    if (s_hosting) snprintf(s_ids[0], sizeof s_ids[0], "%s", online_player_id());
     s_cancel = 0;
     s_host_lost = 0;
     s_start_request = s_pick_dirty = s_ready_dirty = 0;
@@ -1722,12 +1749,17 @@ static void match_commands(const NetplayMatch *m, char *out, size_t size)
     add(out, size, &n, "Controller.GetCustomControlMap();Game.StartGame()");
 }
 
+static int replay_startup(const char *path);
+static int launch_match(const NetplayMatch *match);
+
 int netplay_startup(void)
 {
     const char *host = getenv("RECOMP_NETPLAY_HOST"), *join = getenv("RECOMP_NETPLAY_JOIN");
+    const char *replay = getenv("RECOMP_NETPLAY_REPLAY");
     NetplayMatch m;
-    char text[2048];
     int i;
+    if (s_replay_choice[0]) return replay_startup(s_replay_choice);
+    if (replay && *replay) return replay_startup(replay);
     if (s_inited && netplay_state() == NETPLAY_IDLE) return 1;
     if (!s_inited || netplay_state() == NETPLAY_FAILED) {
         const char *venue = getenv("RECOMP_NETPLAY_VENUE"), *fighters = getenv("RECOMP_NETPLAY_FIGHTERS");
@@ -1753,6 +1785,16 @@ int netplay_startup(void)
             sleep_ms(50);
     }
     if (!netplay_match(&m)) return 0;
+    return launch_match(&m);
+}
+
+/* The game goes straight into match `match` in lockstep mode: an online match, or a
+ * replay of one. */
+static int launch_match(const NetplayMatch *match)
+{
+    NetplayMatch m = *match;
+    char text[2048];
+    int i;
     snprintf(text, sizeof text, "%u", m.seed);
     /* Straight to the match: the intro is skipped (skip_intro.c asks netplay_quick_start),
      * and from the title screen Start and A are pressed for the player every second --
@@ -1809,11 +1851,15 @@ static uint32_t s_current[MAXP][ENTRY_WORDS];   /* this step's input per slot */
 static long s_current_step;
 static int s_desynced;
 
+static void rec_end(void);           /* the replay section, below */
+static void rec_hash(uint32_t hash);
+
 static void end_session(const char *why)
 {
     fprintf(stderr, "[NETPLAY] %s; the match goes on locally\n", why);
     fflush(stderr);
     s_session_live = 0;
+    rec_end();
 }
 
 static int local_player(void)
@@ -1899,6 +1945,7 @@ static void desync_check(void)
     int prev = (int)(((s_step / SYNC_EVERY) + SYNC_KEEP - 1) % SYNC_KEEP);
     int p, me = local_player();
     uint32_t mine = fight_hash();
+    rec_hash(mine);
     send_all(-1, "SYNC %d %lld %08x", me, NET_STEP(s_net_match, s_step), mine);
     s_sync_mine[i] = mine;
     s_sync_mine_step[i] = NET_STEP(s_net_match, s_step);
@@ -1925,6 +1972,418 @@ static void desync_check(void)
     fflush(stderr);
 }
 
+/* ---- Replays and the record (netplay_record.h) ------------------------------------
+ * Every online match is written to <data>/online/replays/<when>-<match>.djr while it plays,
+ * one text line at a time:
+ *
+ *   DJREPLAY 1
+ *   BUILD <version> <program> <game data>  it plays the same fight on the same build only
+ *   WHEN <seconds since 1970>
+ *   MATCHNO <n>                            the session's n-th match
+ *   PLAYERS <name0> ... <name3>            "-" for none
+ *   IDS <id0> ... <id3>
+ *   LOCAL <player>                         who recorded it
+ *   MATCH ...                              as the host sent it
+ *   FILE / DATA / END ...                  every created fighter's save, as sent
+ *   GO
+ *   S <step> <slot> <6 words>              the slot's input from this step on (changes only)
+ *   H <step> <hash>                        fight_hash, every SYNC_EVERY steps
+ *   R <step> <code> <winners> <losers>     the result (slot bit masks)
+ *   E <step>                               the last step
+ *
+ * and its result goes to history.txt (netplay_record.c), once the game records it. A
+ * replay plays as a netplay match with one game and no network: the same seed and saves,
+ * each step's inputs from the file, its hashes checked on the way. */
+static FILE *s_rec;
+static char s_rec_file[64];
+static long long s_rec_when;
+static int s_rec_done;              /* this match's result is in the history */
+static uint32_t s_rec_last[MAXP][ENTRY_WORDS];
+
+static uint32_t (*s_play_in)[MAXP][ENTRY_WORDS];   /* a replay's inputs per step, 1..s_play_steps */
+static long s_play_steps;
+static uint32_t *s_play_hash;       /* per SYNC_EVERY steps */
+static unsigned char *s_play_has_hash;
+static long s_play_hashes;
+static int s_play_diverged;
+static char s_play_title[96];
+
+static void banner(const char *text, unsigned ms);
+
+static void record_file_lines(FILE *out, const SaveFile *f)
+{
+    char word[2 * sizeof f->name + 1];
+    size_t off, i, n;
+    hex_word(word, sizeof word, f->name);
+    fprintf(out, "FILE %d %s %s %u\n", f->owner, f->folder, word, (unsigned)f->size);
+    for (off = 0; off < f->size; off += n) {
+        n = f->size - off < CHUNK ? f->size - off : CHUNK;
+        fputs("DATA ", out);
+        for (i = 0; i < n; i++) fprintf(out, "%02x", f->data[off + i]);
+        fputc('\n', out);
+    }
+    fputs("END\n", out);
+}
+
+/* The match's result in the history, as this player sees it: against every other player
+ * not on their team (a Team Match's partner is neither). */
+static void record_history(char result)
+{
+    OnlineMatchRecord r;
+    int me = local_player(), mine = s_match.local_slot, slot;
+    memset(&r, 0, sizeof r);
+    r.when = s_rec_when;
+    r.result = result;
+    r.type = s_match.type;
+    r.venue = s_match.venue;
+    r.fighter = mine >= 0 ? s_match.fighter[mine] : -1;
+    if (mine >= 0) snprintf(r.profile, sizeof r.profile, "%s", s_match.profile[mine]);
+    snprintf(r.replay, sizeof r.replay, "%s", s_rec_file);
+    lock();
+    if (me >= 0) snprintf(r.name, sizeof r.name, "%s", s_lobby.name[me]);
+    for (slot = 0; slot < s_match.slots && slot < MAXP; slot++) {
+        int p = s_match.owner[slot];
+        if (p < 0 || p == me || r.opponents == ONLINE_OPPONENTS) continue;
+        if (s_match.type == 1 && mine >= 0 && s_match.team[slot] == s_match.team[mine]) continue;
+        snprintf(r.opponent[r.opponents], sizeof r.opponent[0], "%s", s_lobby.name[p]);
+        snprintf(r.opponent_id[r.opponents], sizeof r.opponent_id[0], "%s", s_ids[p]);
+        r.opponents++;
+    }
+    unlock();
+    r.counted = result != 'U' && r.opponents > 0;
+    s_rec_done = 1;
+    if (!online_record_add(&r)) {
+        fprintf(stderr, "[NETPLAY] could not add the match to the online history\n");
+        fflush(stderr);
+    }
+}
+
+static void rec_end(void)
+{
+    if (!s_rec) return;
+    fprintf(s_rec, "E %ld\n", s_step);
+    fclose(s_rec);
+    s_rec = NULL;
+    /* a match that never had a result: a player left, or the session broke */
+    if (!s_rec_done && s_step > 0) record_history('U');
+    s_rec_file[0] = 0;
+}
+
+/* At exit the game thread may still be writing: the file is only flushed, never closed. */
+static void rec_at_exit(void)
+{
+    if (!s_rec) return;
+    fflush(s_rec);
+    if (!s_rec_done && s_step > 0) record_history('U');
+}
+
+static void rec_begin(void)
+{
+    static int hooked;
+    char dir[1024], path[1200], line[512];
+    time_t now = time(NULL);
+    struct tm when;
+    int i;
+    rec_end();
+    memset(s_rec_last, 0, sizeof s_rec_last);
+    s_rec_done = 0;
+    s_rec_when = (long long)now;
+    if (!online_dir(dir, sizeof dir)) return;
+    snprintf(path, sizeof path, "%s" PATH_SEP "replays", dir);
+    make_dir(path);
+    online_prune_replays(path, ONLINE_REPLAYS_KEPT - 1);
+#if defined(_WIN32)
+    localtime_s(&when, &now);
+#else
+    localtime_r(&now, &when);
+#endif
+    strftime(line, sizeof line, "%Y%m%d-%H%M%S", &when);
+    snprintf(s_rec_file, sizeof s_rec_file, "%s-%d.djr", line, s_net_match);
+    snprintf(path + strlen(path), sizeof path - strlen(path), PATH_SEP "%s", s_rec_file);
+    if (!(s_rec = fopen(path, "w"))) {
+        fprintf(stderr, "[NETPLAY] could not write the replay %s\n", path);
+        fflush(stderr);
+        s_rec_file[0] = 0;
+        return;
+    }
+    if (!hooked) { atexit(rec_at_exit); hooked = 1; }
+    fprintf(s_rec, "DJREPLAY 1\nBUILD %s %s %s\nWHEN %lld\nMATCHNO %d\n", DEFJAM_VERSION, s_fp_program, s_fp_data,
+            s_rec_when, s_net_match);
+    lock();
+    fputs("PLAYERS", s_rec);
+    for (i = 0; i < MAXP; i++) fprintf(s_rec, " %s", s_lobby.name[i][0] ? s_lobby.name[i] : "-");
+    fputs("\nIDS", s_rec);
+    for (i = 0; i < MAXP; i++) fprintf(s_rec, " %s", s_ids[i][0] ? s_ids[i] : "-");
+    unlock();
+    fprintf(s_rec, "\nLOCAL %d\n", local_player());
+    match_line(line, sizeof line, &s_match);
+    fprintf(s_rec, "%s\n", line);
+    for (i = 0; i < s_file_count; i++)
+        if (s_files[i].got == s_files[i].size) record_file_lines(s_rec, &s_files[i]);
+    fputs("GO\n", s_rec);
+    fflush(s_rec);
+    fprintf(stderr, "[NETPLAY] recording this match to %s\n", s_rec_file);
+    fflush(stderr);
+}
+
+/* After this step's inputs are known: the slots whose input changed. */
+static void rec_step(void)
+{
+    int slot, i;
+    if (!s_rec) return;
+    for (slot = 0; slot < s_match.slots && slot < MAXP; slot++) {
+        if (!memcmp(s_current[slot], s_rec_last[slot], sizeof s_current[slot])) continue;
+        fprintf(s_rec, "S %ld %d", s_step, slot);
+        for (i = 0; i < ENTRY_WORDS; i++) fprintf(s_rec, " %x", s_current[slot][i]);
+        fputc('\n', s_rec);
+        memcpy(s_rec_last[slot], s_current[slot], sizeof s_current[slot]);
+    }
+}
+
+static void rec_hash(uint32_t hash)
+{
+    if (!s_rec) return;
+    fprintf(s_rec, "H %ld %08x\n", s_step, hash);
+    if (s_step % 600 == 0) fflush(s_rec);
+}
+
+/* What the game's result recorder (sub_001A6A80) was given: two lists of slots, each
+ * ended by -1, and its code (docs/research/match-end-state.md): bit 0 the match is decided,
+ * bit 2 a draw. Only the decided one counts, once a match. A match a player left before it
+ * was decided is unfinished: the one still there won against an empty pad. */
+void netplay_result(uint32_t winners, uint32_t losers, uint32_t code)
+{
+    int wmask = 0, lmask = 0, i, mine, slot, gone = 0, me;
+    char result;
+    if (!s_session_live || !s_current_step || !(code & 1)) return;
+    for (i = 0; i < MAXP; i++) {
+        uint32_t w = MEM32(winners + 4u * i);
+        if (w == 0xFFFFFFFFu) break;
+        if (w < MAXP) wmask |= 1 << w;
+    }
+    for (i = 0; i < MAXP; i++) {
+        uint32_t l = MEM32(losers + 4u * i);
+        if (l == 0xFFFFFFFFu) break;
+        if (l < MAXP) lmask |= 1 << l;
+    }
+    if (s_replaying) {
+        char text[96];
+        int p = -1;
+        for (slot = 0; slot < MAXP && !(wmask >> slot & 1); slot++) {}
+        if (slot < MAXP) p = s_match.owner[slot];
+        if (s_play_diverged) snprintf(text, sizeof text, "Replay over (it did not play the same fight)");
+        else if (code & 4) snprintf(text, sizeof text, "Replay: a draw");
+        else snprintf(text, sizeof text, "Replay: %s wins", p >= 0 && s_lobby.name[p][0] ? s_lobby.name[p] : "the CPU");
+        fprintf(stderr, "[NETPLAY] replay decided at step %ld: code %x, winners %x, losers %x\n", s_step, code, wmask, lmask);
+        fflush(stderr);
+        banner(text, 6000);
+        return;
+    }
+    if (s_rec) {
+        fprintf(s_rec, "R %ld %x %x %x\n", s_step, code, wmask, lmask);
+        fflush(s_rec);
+    }
+    if (s_rec_done) return;
+    mine = s_match.local_slot;
+    me = local_player();
+    lock();
+    for (slot = 0; slot < s_match.slots && slot < MAXP; slot++) {
+        int p = s_match.owner[slot];
+        if (p >= 0 && p != me && s_gone_from[p] <= NET_STEP(s_net_match, s_step)) gone = 1;
+    }
+    unlock();
+    if (gone || mine < 0) result = 'U';
+    else if (code & 4) result = 'D';
+    else if (wmask >> mine & 1) result = 'W';
+    else if (lmask >> mine & 1) result = 'L';
+    else {
+        result = 'L';
+        for (slot = 0; slot < MAXP; slot++)
+            if ((wmask >> slot & 1) && s_match.team[slot] == s_match.team[mine]) result = 'W';
+    }
+    fprintf(stderr, "[NETPLAY] match %d decided at step %ld: code %x, winners %x, losers %x: %s for this player\n",
+            s_net_match, s_step, code, wmask, lmask,
+            result == 'W' ? "a win" : result == 'L' ? "a loss" : result == 'D' ? "a draw" : "unfinished");
+    fflush(stderr);
+    record_history(result);
+}
+
+int netplay_replaying(void)
+{
+    return s_replaying;
+}
+
+void netplay_replay_choose(const char *path)
+{
+    snprintf(s_replay_choice, sizeof s_replay_choice, "%s", path ? path : "");
+}
+
+/* The replay's header, up to GO: whether this build can play it (why not, in `why`). */
+int netplay_replay_check(const char *path, char *why, int size)
+{
+    char line[512], version[64] = "", program[24] = "", data[24] = "";
+    FILE *in = fopen(path, "r");
+    int ok = 0, have_build = 0;
+    if (!s_fp_program[0]) fingerprints();
+    snprintf(why, (size_t)size, "The replay could not be read");
+    if (!in) return 0;
+    if (fgets(line, sizeof line, in) && !strncmp(line, "DJREPLAY 1", 10)) {
+        while (fgets(line, sizeof line, in)) {
+            if (sscanf(line, "BUILD %63s %23s %23s", version, program, data) == 3) have_build = 1;
+            else if (!strncmp(line, "MATCH ", 6)) ok = 1;
+            else if (!strncmp(line, "GO", 2)) break;
+        }
+    }
+    fclose(in);
+    if (!ok || !have_build) return 0;
+    if (strcmp(data, s_fp_data)) {
+        snprintf(why, (size_t)size, "Recorded with different game data");
+        return 0;
+    }
+    if (strcmp(version, DEFJAM_VERSION)) {
+        snprintf(why, (size_t)size, "Recorded on v%s; this is v%s", version, DEFJAM_VERSION);
+        return 0;
+    }
+    if (strcmp(program, s_fp_program)) {
+        snprintf(why, (size_t)size, "Recorded by a different build of v%s", version);
+        return 0;
+    }
+    snprintf(why, (size_t)size, "Recorded on v%s", version);
+    return 1;
+}
+
+/* A replay to watch: read it, put its created fighters' saves in place (each a guest, as
+ * another player's would be: the player's own may have changed since), and start the match
+ * from it. */
+static int replay_startup(const char *path)
+{
+    char line[1024], why[160], names[MAXP][NETPLAY_NAME_LEN];
+    FILE *in;
+    NetplayMatch m;
+    long max_step = 0, step, filled = 0;
+    uint32_t cur[MAXP][ENTRY_WORDS], w[ENTRY_WORDS], hash;
+    int slot, i, have_match = 0, pass;
+    if (!s_inited) { lock_init(); s_inited = 1; }
+    if (!netplay_replay_check(path, why, sizeof why)) {
+        fprintf(stderr, "[NETPLAY] cannot play the replay %s: %s\n", path, why);
+        fflush(stderr);
+        return 0;
+    }
+    default_lobby();
+    s_lobby.local_player = -1;      /* nobody's own: every created fighter is a guest */
+    free_files();
+    memset(&m, 0, sizeof m);
+    memset(cur, 0, sizeof cur);
+    memset(names, 0, sizeof names);
+    for (pass = 0; pass < 2; pass++) {
+        int after_go = 0;
+        if (!(in = fopen(path, "r"))) return 0;
+        while (fgets(line, sizeof line, in)) {
+            line[strcspn(line, "\r\n")] = 0;
+            if (!after_go) {
+                if (pass) { after_go = !strcmp(line, "GO"); continue; }
+                if (!strncmp(line, "PLAYERS ", 8)) {
+                    char raw[MAXP][64];
+                    int n = sscanf(line, "PLAYERS %63s %63s %63s %63s", raw[0], raw[1], raw[2], raw[3]);
+                    for (i = 0; i < MAXP; i++) {
+                        if (i < n && strcmp(raw[i], "-")) clean_name(names[i], raw[i]);
+                        else names[i][0] = 0;
+                        snprintf(s_lobby.name[i], sizeof s_lobby.name[i], "%s", names[i]);
+                    }
+                } else if (!strncmp(line, "MATCH ", 6)) {
+                    have_match = read_match_line(line, &m);
+                } else if (!strcmp(line, "GO")) {
+                    after_go = 1;
+                } else {
+                    file_line(0, line);
+                }
+                continue;
+            }
+            if (sscanf(line, "S %ld %d %x %x %x %x %x %x", &step, &slot, &w[0], &w[1], &w[2], &w[3], &w[4], &w[5]) == 8
+                && step > 0 && step < (1L << STEP_BITS) && slot >= 0 && slot < MAXP) {
+                if (step > max_step) max_step = step;
+                if (pass) {
+                    for (; filled < step; filled++) memcpy(s_play_in[filled + 1], cur, sizeof cur);
+                    memcpy(cur[slot], w, sizeof w);
+                    memcpy(s_play_in[step][slot], w, sizeof w);
+                }
+            } else if (sscanf(line, "H %ld %x", &step, &hash) == 2 && step > 0 && step < (1L << STEP_BITS)) {
+                if (step > max_step) max_step = step;
+                if (pass && step % SYNC_EVERY == 0 && step / SYNC_EVERY < s_play_hashes) {
+                    s_play_hash[step / SYNC_EVERY] = hash;
+                    s_play_has_hash[step / SYNC_EVERY] = 1;
+                }
+            } else if (sscanf(line, "E %ld", &step) == 1 && step > 0 && step < (1L << STEP_BITS)) {
+                if (step > max_step) max_step = step;
+            }
+        }
+        fclose(in);
+        if (!pass) {
+            if (!have_match) {
+                fprintf(stderr, "[NETPLAY] the replay %s has no match\n", path);
+                fflush(stderr);
+                return 0;
+            }
+            free(s_play_in);
+            free(s_play_hash);
+            free(s_play_has_hash);
+            s_play_steps = max_step;
+            s_play_hashes = max_step / SYNC_EVERY + 1;
+            s_play_in = (uint32_t (*)[MAXP][ENTRY_WORDS])calloc((size_t)max_step + 2, sizeof *s_play_in);
+            s_play_hash = (uint32_t *)calloc((size_t)s_play_hashes, sizeof *s_play_hash);
+            s_play_has_hash = (unsigned char *)calloc((size_t)s_play_hashes, 1);
+            if (!s_play_in || !s_play_hash || !s_play_has_hash) return 0;
+        }
+    }
+    for (; filled < s_play_steps; filled++) memcpy(s_play_in[filled + 1], cur, sizeof cur);
+    m.local_slot = -1;
+    if (!place_saves(&m)) {
+        fprintf(stderr, "[NETPLAY] could not put the replay's created fighters in place\n");
+        fflush(stderr);
+        return 0;
+    }
+    {
+        char a[NETPLAY_NAME_LEN] = "", b[NETPLAY_NAME_LEN] = "";
+        for (slot = 0; slot < m.slots && slot < MAXP; slot++) {
+            int p = m.owner[slot];
+            const char *who = p >= 0 && p < MAXP && names[p][0] ? names[p] : "CPU";
+            if (!a[0]) snprintf(a, sizeof a, "%s", who);
+            else if (!b[0]) snprintf(b, sizeof b, "%s", who);
+        }
+        snprintf(s_play_title, sizeof s_play_title, "Replay: %s vs %s", a, b[0] ? b : "CPU");
+    }
+    s_match = m;
+    s_replaying = 1;
+    s_play_diverged = 0;
+    fprintf(stderr, "[NETPLAY] replay %s: %ld steps, %s\n", path, s_play_steps, why);
+    fflush(stderr);
+    return launch_match(&m);
+}
+
+/* A replay's step: its inputs from the file, and its hash checked against the recording. */
+static void replay_step(void)
+{
+    long k;
+    s_step++;
+    if (s_step == 1) banner(s_play_title, 5000);
+    if (s_step <= s_play_steps) memcpy(s_current, s_play_in[s_step], sizeof s_current);
+    else memset(s_current, 0, sizeof s_current);
+    s_current_step = s_step;
+    k = s_step / SYNC_EVERY;
+    if (s_step % SYNC_EVERY == 0 && k < s_play_hashes && s_play_has_hash[k] && !s_play_diverged) {
+        uint32_t h = fight_hash();
+        if (h != s_play_hash[k]) {
+            s_play_diverged = 1;
+            fprintf(stderr, "[NETPLAY] REPLAY DIVERGED at step %ld (%08x here, %08x recorded)\n", s_step, h, s_play_hash[k]);
+            fflush(stderr);
+            banner("This replay no longer plays the same fight", 6000);
+        } else if (s_step % 600 == 0) {
+            fprintf(stderr, "[NETPLAY] replay matches the recording at step %ld\n", s_step);
+            fflush(stderr);
+        }
+    }
+}
+
 void netplay_match_start(void)
 {
     int p;
@@ -1935,6 +2394,7 @@ void netplay_match_start(void)
     s_net_match++;
     for (p = 0; p < MAXP; p++) s_vote[p] = -1;
     if (s_inited) unlock();
+    if (s_session_live && !s_replaying) rec_begin();
 }
 
 void netplay_step(void)
@@ -1942,6 +2402,7 @@ void netplay_step(void)
     int me = local_player(), waited, slot;
     uint32_t mine[ENTRY_WORDS];
     if (!s_session_live) return;
+    if (s_replaying) { replay_step(); return; }
     if (s_delay < 0) {
         const char *d = getenv("RECOMP_NETPLAY_DELAY");
         s_delay = d && *d ? atoi(d) : 3;
@@ -1988,6 +2449,7 @@ void netplay_step(void)
         unlock();
     }
     s_current_step = s_step;
+    rec_step();
     if (s_step % SYNC_EVERY == 0)
         desync_check();
 }
@@ -2004,7 +2466,7 @@ void netplay_filter_pad(uint32_t state)
 {
     static int was_down;
     int down;
-    if (!s_session_live || !s_current_step || !state || MEM32(G_PHASE) >= 2u) return;
+    if (!s_session_live || s_replaying || !s_current_step || !state || MEM32(G_PHASE) >= 2u) return;
     down = (MEM16(state + 4) & XINPUT_START) != 0;
     if (down && !was_down) {
         fprintf(stderr, "[NETPLAY] Start held back at step %ld: pausing is off in a netplay fight\n", s_step);
@@ -2088,6 +2550,11 @@ int netplay_quick_start(void)
 int netplay_hold_call(const char *text)
 {
     if (!s_session_live || !s_net_match || !text) return 0;
+    if (s_replaying) {
+        /* Rematch watches it again; Quit ends it. */
+        if (strstr(text, "Game.Quit()")) s_session_live = s_replaying = 0;
+        return 0;
+    }
     if (strstr(text, "Game.Rematch()")) {
         if (!s_rematch_waiting) vote(1);
         s_rematch_waiting = 1;
@@ -2098,6 +2565,7 @@ int netplay_hold_call(const char *text)
         vote(0);
         s_session_live = 0;
         s_rematch_waiting = 0;
+        rec_end();
         banner("You left the online session.", 4000);
         return 0;
     }

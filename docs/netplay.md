@@ -100,6 +100,41 @@ Tested (two games, one PC, harness routes `netplay-rematch` and `netplay-quit`):
 NO sent the YES side back to the match-type menu without a match; YES and YES started
 match 2 on both together, which stayed in sync to the same result.
 
+## Your record and replays
+
+Every online match goes into the player's online record, kept in `<data>/online`
+(`src/hooks/netplay_record.c`), which the launcher's Online page shows under Host and
+Join: the player's online name, a rank title (by counted wins: Rookie, Contender at 5,
+Brawler at 15, Enforcer at 30, Kingpin at 60, Legend of the city at 100), the record,
+the win rate, the current streak, the favourite fighter and the best venue, with
+**Match history** and **Rivals** behind two buttons.
+
+- `player.ini` holds this copy's player ID, 16 hex digits made once. It travels in
+  `HELLO` and the host's `IDS` line, so each game keeps its record against the others
+  by ID: a new name does not split a rival in two.
+- `history.txt` has one line per match: when, the result as this player sees it (win,
+  loss, draw, or unfinished), the type, the venue, their fighter, the replay's file and
+  the other players (names and IDs; a Team Match's partner is not an opponent). The
+  result comes from the game's own result recorder (`sub_001A6A80`, the decided call:
+  code bit 0, a draw with bit 2). A match another player left before it was decided is
+  listed as unfinished and not counted: the one still there would have won against an
+  empty pad. A match with no other player (a host alone, against the CPU) is listed as
+  practice and not counted.
+- `replays/<date>-<time>-<match>.djr` is the match itself, written as it plays: the
+  build, the players, the `MATCH` line, every created fighter's save as it was sent,
+  then each step a slot's input changed, the fight hash every 60 steps, the result and
+  the last step. The newest 100 are kept.
+
+**Watch** in the history starts the game straight into the replay: it plays as an
+online match with one game and no network, from the same seed, the same saves (each
+created fighter added as a guest, as another player's would be, since the player's own
+may have changed since) and the recorded inputs. On the way it checks the fight against
+the recorded hashes and says so on screen if the two part ("This replay no longer plays
+the same fight"). A replay plays only on the build that recorded it, because another
+build may play a different fight from the same inputs; the history says why a Watch
+button is off. In a replay Start pauses as usual, and the game's Rematch watches it
+again. There is no fast-forward or seeking yet.
+
 ## Created fighters
 
 A created fighter is part of its profile's save, so the profile has to be on every
@@ -151,16 +186,16 @@ the match is set up: a created fighter's intro is drawn from it.
 ## The session (src/hooks/netplay.c)
 
 The host is the hub: every joiner has one TCP connection, to the host, which passes
-each joiner's in-game messages on to the others. Text lines (protocol 2):
+each joiner's in-game messages on to the others. Text lines (protocol 3):
 
-1. joiner: `HELLO <protocol> <version> <program> <data> <name>`; host: `WELCOME
-   <player>` or `REFUSE <reason>`. The fingerprints are hashes of the running program
+1. joiner: `HELLO <protocol> <version> <program> <data> <name> <id>`; host: `WELCOME
+   <player>` or `REFUSE <reason>`. `<id>` is the player's ID (Your record and replays). The fingerprints are hashes of the running program
    and of `game/default.xbe`; any difference refuses the player with the reason,
    because a different build or dump plays a different fight.
 2. In the lobby the host sends `LOBBY <type> <rules> <venue> <f0..f3> <slots> <players>
    <phase> <ready mask> <name0..3> <profile0..3>` whenever it changes; a joiner sends
    `READYUP <0|1>` and `PICK <fighter> [<profile>]` (profiles in hex; `-` is none).
-3. The host starts: `MATCH <seed> <type> <rules> <venue> <slots> <f0..f3> <t0..t3>
+3. The host starts: `IDS <id0..3>`, then `MATCH <seed> <type> <rules> <venue> <slots> <f0..f3> <t0..t3>
    <o0..o3> <profile0..3>`. The saves follow (`FILE <player> <folder> <name> <size>`, `DATA
    <hex>`..., `END`; a joiner ends its own with `SENT`, the host its with `FILES`), then
    each joiner `READY` and the host `GO`.
@@ -249,6 +284,14 @@ Terrordome (`RECOMP_NETPLAY_VENUE=6`) started there on both and stayed in sync.
   them are untested over the network; so is a match with two different players'
   created fighters (the game's profile order itself was checked).
 - Every player needs the same file mods (docs/mod-manager.md#file-mods).
+- Replays (2026-11-05): a host alone against the CPU, and both sides of a two-game
+  session, played back to the recorded result at the same step with every hash
+  check agreeing (22 to 40 checks per match), from the command line
+  (`RECOMP_NETPLAY_REPLAY`) and from the launcher's Watch. Unverified: a replay of a
+  session's second match (a rematch), which plays from a fresh start while the
+  recording followed a first match; the hash check says on screen if one plays
+  differently. The harness route `netplay-rematch` now stops at a tip screen after
+  the first match (no stage presses through it), so that test needs a new route.
 - The intermittent start-up stall (stuck at "press start": the USB host controller's
   first deferred routine ran seconds late and the driver gave up on the pad) is fixed
   in the toolkit: the timer thread, pinned to the guest core, went unscheduled for

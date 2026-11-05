@@ -152,6 +152,19 @@ void netplay_tick(void);
 /* A line for the screen while something waits on the session, or NULL. */
 const char *netplay_banner(void);
 
+/* The game's result recorder (sub_001A6A80) was called: the slot lists (each ended by -1)
+ * and the code. A decided online match goes to the player's record (netplay_record.h). */
+void netplay_result(uint32_t winners, uint32_t losers, uint32_t code);
+
+/* Replays (netplay.c, docs/netplay.md): every online match is recorded to
+ * <data>/online/replays. Whether this build can play the replay at `path` (and why not, or
+ * what it is, in `why`); the one to play at the next start (netplay_startup, after the
+ * launcher; "" none; RECOMP_NETPLAY_REPLAY does the same for a scripted run); and whether
+ * this process plays one. */
+int netplay_replay_check(const char *path, char *why, int size);
+void netplay_replay_choose(const char *path);
+int netplay_replaying(void);
+
 #ifdef __cplusplus
 }
 #endif

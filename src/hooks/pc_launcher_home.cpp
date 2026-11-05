@@ -1,4 +1,5 @@
 #include "pc_launcher_home.h"
+#include "pc_launcher_online.h"
 #include "pc_launcher_art.h"
 #include "pc_launcher_profiles.h"
 #include "pc_ui_theme.h"
@@ -419,9 +420,13 @@ Words words(int tile, const LauncherProfile *me, size_t profiles)
                 "or a friend on this PC.",
                 "Press A to choose a match"};
     case ONLINE:
+    {
+        std::string record = ui_online_summary();
         return {"ONLINE", "ONLINE MATCH",
-                "Host or join a match over the internet, up to four players, with your own created fighters.",
+                "Host or join a match over the internet, up to four players, with your own created fighters." +
+                    (record.empty() ? std::string() : " Your record: " + record + "."),
                 "Press A to host or join"};
+    }
     case MAIN_MENU:
         return {"MAIN MENU", "MAIN MENU", "The game's own menu without the intro: create a fighter, Extras, Options.",
                 "Press A to start"};
@@ -448,7 +453,10 @@ std::string tile_detail(int tile, const LauncherProfile *me, size_t profiles)
     case BATTLE:
         return "CPU or a friend";
     case ONLINE:
-        return "Host or join";
+    {
+        std::string record = ui_online_summary();
+        return record.empty() ? "Host or join" : record;
+    }
     case MAIN_MENU:
         return "No intro";
     case PROFILES:
