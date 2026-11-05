@@ -20,6 +20,9 @@ Issue numbers below (#98 and so on) are from the original project's tracker.
   6 slots, they evicted one another, and every bind hashed a texture in full again (about 700
   SHA-256s a second, 20 of every 25 ms). Both run at 60 now. One start in five also never
   reached the fight (Direct3D's busy-wait starved the loading threads); fixed as well.
+  Measured after both fixes (2026-11-05, HD packs on, one game, 2-minute fight per venue):
+  all 27 venues reached the fight and held a 60 fps median; the lowest 2-second sample on
+  any venue was 49.6.
 - **The background crowd** is the same on every player's screen since v0.14.2 (two games, one
   with HD packs: equal at all 18,622 steps of a match). Before, it could differ; the fight
   never did.
