@@ -119,9 +119,12 @@ def lift(repo, toolkit, split, extra):
     gen.parent.mkdir(parents=True, exist_ok=True)
     staged = Path(tempfile.mkdtemp(prefix='gen-pending-', dir=gen.parent))
     # Retain failed staging output for diagnosis; never replace the working set.
+    # Direct3D's wait for push-buffer space (D3DDevice_MakeSpace) busy-waits on a thread
+    # Windows may boost far above the ones it waits for on the guest core: its loops yield
+    # the core now and then (RECOMP_SPIN_YIELD, the toolkit's kernel_starve.c).
     cmd = [sys.executable, '-m', 'tools.recomp', 'game_files/default.xbe', '--all',
            '--split', str(split), '--gen-dir', str(staged), '--exclude-manual',
-           str(repo / 'src/recomp_manual.c'), *extra]
+           str(repo / 'src/recomp_manual.c'), '--spin-yield', '0021EC50', *extra]
     subprocess.run(cmd, cwd=toolkit, check=True)
     if not (staged / 'recomp_dispatch.c').is_file() or not list(staged.glob('recomp_0*.c')):
         raise ValueError(f'Lifter did not produce a complete set: {staged}')
