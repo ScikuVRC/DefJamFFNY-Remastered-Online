@@ -76,10 +76,10 @@ project is tested on Windows.
 ## Online play in short
 
 - **Host:** launcher → *Online* → *Host*. The lobby asks your router to open the port
-  (UPnP, which most home routers have on) and shows the address to give the others, with a
-  Copy button. If your router can't, the lobby says why: then forward TCP port 7777 to your PC
-  in the router yourself.
-- **Join:** launcher → *Online* → enter `host-address:7777`.
+  (UPnP, which most home routers have on) and shows an **invite code** (`DJ-XXXX-…`) with a
+  Copy button: send it to the others. If your router can't open the port, the lobby says why:
+  then forward TCP port 7777 to your PC in the router yourself.
+- **Join:** launcher → *Online* → paste the invite code (or type `host-address:7777`) → *Join*.
 - Everyone needs the same build and the same copy of the game; the lobby says if they differ.
 
 How it works, and what is not done yet: [Online play](docs/netplay.md).

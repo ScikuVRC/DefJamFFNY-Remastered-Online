@@ -37,6 +37,7 @@
 #include "pc_launcher_home.h"
 #include "netplay.h"
 #include "netplay_router.h"
+#include "netplay_invite.h"
 
 #include "imgui.h"
 #if defined(_WIN32)
@@ -1549,8 +1550,8 @@ static void ui_online_match(UiResult &result, float width, float scale)
     {
         // Not in a lobby yet: host one or join one.
         ImGui::TextWrapped("Fight online with up to four players who have the same version of the game "
-                           "and the same game dump. One player hosts a lobby; the others join it with the "
-                           "host's address. The host may need to open the port in their router.");
+                           "and the same game dump. One player hosts a lobby and sends the others its "
+                           "invite code; they paste it under Join.");
         ImGui::Spacing();
         ImGui::SetNextItemWidth(field);
         if (ImGui::InputText("Your name", name, sizeof name))
@@ -1566,8 +1567,9 @@ static void ui_online_match(UiResult &result, float width, float scale)
         }
         ui_target("OnlineHost");
         pcui::section("Join a lobby");
-        ImGui::SetNextItemWidth(field);
-        ImGui::InputTextWithHint("Address", "host:7777", address, sizeof address);
+        ImGui::SetNextItemWidth(field * 1.3f);
+        ImGui::InputTextWithHint("Invite code or address", "DJ-XXXX-XXXX-... or host:7777", address,
+                                 sizeof address);
         ImGui::SameLine();
         ImGui::BeginDisabled(!address[0]);
         if (ImGui::Button("Join"))
@@ -1597,6 +1599,39 @@ static void ui_online_match(UiResult &result, float width, float scale)
             if (address_count < 0)
                 address_count = netplay_local_addresses(addresses, 4);
             ImGui::Text("Your lobby, on port %s", port);
+            // The invite code: this lobby's addresses as one code (netplay_invite.h). It waits for
+            // the router, whose answer gives both the public address and this PC's on its network.
+            {
+                char router_text[256], public_ip[64] = "", lan_ip[48] = "", code[NETPLAY_INVITE_LEN];
+                int router_state = netplay_router_status(router_text, sizeof router_text);
+                if (router_state == NETPLAY_ROUTER_OPEN && router_text[0])
+                {
+                    snprintf(public_ip, sizeof public_ip, "%s", router_text);
+                    if (char *colon = strrchr(public_ip, ':'))
+                        *colon = 0;
+                }
+                netplay_router_local(lan_ip, sizeof lan_ip);
+                for (int i = 0; !lan_ip[0] && i < address_count; i++)
+                {
+                    unsigned a = 0, b = 0;
+                    if (sscanf(addresses[i], "%u.%u", &a, &b) == 2 &&
+                        (a == 10 || (a == 192 && b == 168) || (a == 172 && b >= 16 && b < 32)))
+                        snprintf(lan_ip, sizeof lan_ip, "%s", addresses[i]);
+                }
+                if (router_state == NETPLAY_ROUTER_TRYING)
+                    ImGui::TextDisabled("Invite code: preparing...");
+                else if (netplay_invite_make((uint16_t)atoi(port), public_ip, lan_ip, code, sizeof code))
+                {
+                    ImGui::TextColored(green, "Invite code: %s", code);
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Copy##invite"))
+                        pcui::copy_text(code);
+                    ui_target("OnlineInviteCopy");
+                    ImGui::TextDisabled(public_ip[0] ? "Send it to the others: they paste it under Join."
+                                                     : "Works on your network; over the internet your router "
+                                                       "has to forward the port (below).");
+                }
+            }
             if (address_count > 0)
             {
                 std::string list;

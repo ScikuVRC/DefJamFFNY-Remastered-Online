@@ -26,6 +26,9 @@ void netplay_router_close(void);
 /* Where that stands (NETPLAY_ROUTER_*), with its text copied into `text`. */
 int netplay_router_status(char *text, size_t size);
 
+/* This PC's address on the router's network, once the ask has ended; "" otherwise. */
+void netplay_router_local(char *text, size_t size);
+
 /* The parts that read a router's replies, for tests: the LOCATION of an SSDP reply; the WAN
  * connection service in a device description and the absolute URL its commands go to; the text
  * of an element of a SOAP reply, whatever its namespace prefix; an HTTP body sent in chunks,

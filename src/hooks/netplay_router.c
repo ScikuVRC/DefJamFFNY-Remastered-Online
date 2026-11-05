@@ -602,6 +602,15 @@ void netplay_router_close(void)
     s_state = NETPLAY_ROUTER_OFF;
 }
 
+/* This PC's address on the network the router is on, once the ask has ended ("" before, or when
+ * no router answered): the home-network part of an invite code (netplay_invite.h). */
+void netplay_router_local(char *text, size_t size)
+{
+    int state = s_state;
+    if (size)
+        snprintf(text, size, "%s", state == NETPLAY_ROUTER_OPEN || state == NETPLAY_ROUTER_FAILED ? s_local : "");
+}
+
 int netplay_router_status(char *text, size_t size)
 {
     int state = s_state;

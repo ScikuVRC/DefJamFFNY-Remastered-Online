@@ -54,6 +54,7 @@ typedef SOCKET sock_t;
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <fcntl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <time.h>
@@ -79,6 +80,7 @@ typedef int sock_t;
 #include "netplay.h"
 #include "netplay_router.h"
 #include "netplay_saves.h"
+#include "netplay_invite.h"
 #include "recomp/gen/recomp_types.h"
 #include "test_observations.h"
 
@@ -694,42 +696,91 @@ static sock_t open_listener(uint16_t port)
     return server;
 }
 
+/* connect() to one of `found`, giving up on each after `wait_ms` rather than the system's twenty
+ * seconds and more: an invite code's home-network address is not there for a friend elsewhere. */
+static sock_t connect_wait(const struct addrinfo *found, int wait_ms)
+{
+    const struct addrinfo *a;
+    for (a = found; a; a = a->ai_next) {
+        struct timeval t = {wait_ms / 1000, (wait_ms % 1000) * 1000};
+        fd_set w;
+        int error = 0, ok;
+        sock_t sock = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+#if defined(_WIN32)
+        u_long on = 1, off = 0;
+        int size = sizeof error;
+        if (sock == SOCK_BAD) continue;
+        ioctlsocket(sock, FIONBIO, &on);
+#else
+        socklen_t size = sizeof error;
+        int flags;
+        if (sock == SOCK_BAD) continue;
+        flags = fcntl(sock, F_GETFL, 0);
+        fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+#endif
+        ok = connect(sock, a->ai_addr, (int)a->ai_addrlen) == 0;
+        if (!ok) {
+            FD_ZERO(&w);
+            FD_SET(sock, &w);
+            ok = select((int)sock + 1, NULL, &w, NULL, &t) == 1
+                 && getsockopt(sock, SOL_SOCKET, SO_ERROR, (char *)&error, &size) == 0 && error == 0;
+        }
+#if defined(_WIN32)
+        ioctlsocket(sock, FIONBIO, &off);
+#else
+        fcntl(sock, F_SETFL, flags);
+#endif
+        if (ok) return sock;
+        sock_close(sock);
+    }
+    return SOCK_BAD;
+}
+
+/* `address` is "host[:port]", or an invite code (netplay_invite.h), whose addresses are tried
+ * in turn: its home-network one, then its public one. */
 static sock_t connect_to(const char *address)
 {
-    char host[128];
-    const char *colon = strrchr(address, ':');
-    const char *port = colon ? colon + 1 : NULL;
-    char port_text[8];
-    struct addrinfo hints, *found = NULL, *a;
+    char invite[NETPLAY_INVITE_MAX][32], hosts[NETPLAY_INVITE_MAX][128], ports[NETPLAY_INVITE_MAX][8];
+    const char *targets[NETPLAY_INVITE_MAX];
+    struct addrinfo hints, *found[NETPLAY_INVITE_MAX] = {NULL};
     sock_t sock = SOCK_BAD;
-    size_t len = colon ? (size_t)(colon - address) : strlen(address);
-    if (len >= sizeof host) len = sizeof host - 1;
-    memcpy(host, address, len);
-    host[len] = 0;
-    if (!port || !*port) {
-        snprintf(port_text, sizeof port_text, "%d", NETPLAY_DEFAULT_PORT);
-        port = port_text;
+    int count = netplay_invite_read(address, invite, NETPLAY_INVITE_MAX), i, usable = 0;
+    if (count)
+        for (i = 0; i < count; i++) targets[i] = invite[i];
+    else {
+        targets[0] = address;
+        count = 1;
     }
-    set_state(NETPLAY_CONNECTING, "Connecting to %s:%s", host, port);
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host, port, &hints, &found) != 0) {
-        set_state(NETPLAY_FAILED, "Could not find %s", host);
+    for (i = 0; i < count; i++) {
+        const char *colon = strrchr(targets[i], ':');
+        size_t len = colon ? (size_t)(colon - targets[i]) : strlen(targets[i]);
+        if (len >= sizeof hosts[i]) len = sizeof hosts[i] - 1;
+        memcpy(hosts[i], targets[i], len);
+        hosts[i][len] = 0;
+        snprintf(ports[i], sizeof ports[i], "%s", colon && colon[1] ? colon + 1 : "");
+        if (!ports[i][0]) snprintf(ports[i], sizeof ports[i], "%d", NETPLAY_DEFAULT_PORT);
+        usable += getaddrinfo(hosts[i], ports[i], &hints, &found[i]) == 0;
+    }
+    if (!usable) {
+        set_state(NETPLAY_FAILED, "Could not find %s", hosts[0]);
         return SOCK_BAD;
     }
+    if (count > 1 || targets[0] != address)
+        set_state(NETPLAY_CONNECTING, "Connecting with the invite code (%s%s%s)", targets[0],
+                  count > 1 ? ", then " : "", count > 1 ? targets[1] : "");
+    else
+        set_state(NETPLAY_CONNECTING, "Connecting to %s:%s", hosts[0], ports[0]);
     /* The host may still be starting: try for a while. */
     while (!s_cancel && sock == SOCK_BAD) {
-        for (a = found; a && sock == SOCK_BAD; a = a->ai_next) {
-            sock = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
-            if (sock != SOCK_BAD && connect(sock, a->ai_addr, (int)a->ai_addrlen) != 0) {
-                sock_close(sock);
-                sock = SOCK_BAD;
-            }
-        }
+        for (i = 0; i < count && sock == SOCK_BAD && !s_cancel; i++)
+            if (found[i]) sock = connect_wait(found[i], 3000);
         if (sock == SOCK_BAD) sleep_ms(500);
     }
-    freeaddrinfo(found);
+    for (i = 0; i < count; i++)
+        if (found[i]) freeaddrinfo(found[i]);
     return sock;
 }
 

@@ -17,9 +17,24 @@ lockstep mode (docs/lockstep-mode.md) to play the same fight from the same input
 ## Playing
 
 In the launcher, the **Online** tile (**Online Match** on the compact Home). One player hosts (a port, 7777 by default), the others
-join with `host-address:port`. The lobby shows the host's addresses on the local network,
-and for players over the internet it asks the router to forward the port to the host
-(below) and shows the public address to give them, with **Copy**.
+join with the host's **invite code**, or with `host-address:port`. For players over the
+internet the lobby asks the router to forward the port to the host (below); it then shows the
+invite code, with **Copy**, and the host's addresses on the local network and over the
+internet.
+
+### Invite codes
+
+An invite code (`netplay_invite.c`) is the lobby's addresses in one line to send: the port,
+the host's public address (when the router opened the port) and its address on its home
+network, with a CRC-8, in Crockford base32 after `DJ-` (`DJ-XXXX-XXXX-XXXX-XXXX-XXXX`, 20
+letters with both addresses). No server is involved, so a code changes when the host's
+public address does. Joining with one tries the home-network address first (a friend in the
+same house, whom the router may not let back in through its public address), then the public
+one, three seconds each, over and over until the host answers or Leave is pressed. Case, spaces
+and dashes do not matter, and O reads as 0, I and L as 1; a mistyped letter fails the
+checksum, and the field is then taken as an address. Without the router (it could not open the
+port, or `RECOMP_NETPLAY_UPNP=0`), the code has the home-network address only.
+`RECOMP_NETPLAY_JOIN` takes a code too.
 
 ### The router
 
