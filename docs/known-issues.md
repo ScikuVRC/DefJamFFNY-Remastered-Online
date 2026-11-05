@@ -15,6 +15,11 @@ Issue numbers below (#98 and so on) are from the original project's tracker.
   connection to the public address reached the lobby, the port was closed again). If a friend
   cannot join, read the lobby's router line; forward TCP port 7777 by hand, or use a virtual
   LAN (such as Radmin VPN) and join the host's address on it.
+- **Slow venues with HD packs (fixed after v0.15.0):** Subway (37 fps) and Gun Hill Garage (43)
+  ran slow with the HD packs on: the pack's lookup table put their 24 palettised crowd textures in
+  6 slots, they evicted one another, and every bind hashed a texture in full again (about 700
+  SHA-256s a second, 20 of every 25 ms). Both run at 60 now. One start in five also never
+  reached the fight (Direct3D's busy-wait starved the loading threads); fixed as well.
 - **The background crowd** is the same on every player's screen since v0.14.2 (two games, one
   with HD packs: equal at all 18,622 steps of a match). Before, it could differ; the fight
   never did.

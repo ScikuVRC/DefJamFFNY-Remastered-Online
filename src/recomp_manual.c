@@ -1295,6 +1295,7 @@ void recomp_icall_not_code_log(uint32_t va)
  * passed (the executor may itself be waiting on this thread).
  * RECOMP_FENCE_HOLD=0 turns it off.
  */
+static uint32_t s_fence_lag = 16;     /* RECOMP_FENCE_LAG: how far behind the executor may fall */
 void sub_0021EB90_enter(void)
 {
     static int on = -1;
@@ -1304,8 +1305,9 @@ void sub_0021EB90_enter(void)
     LARGE_INTEGER t0, t1;
 
     if (on < 0) {
-        const char *e = getenv("RECOMP_FENCE_HOLD");
+        const char *e = getenv("RECOMP_FENCE_HOLD"), *l = getenv("RECOMP_FENCE_LAG");
         on = !(e && *e == '0');
+        if (l && atoi(l) > 0) s_fence_lag = (uint32_t)atoi(l);
         QueryPerformanceFrequency(&freq);
     }
     if (!on)
@@ -1314,12 +1316,12 @@ void sub_0021EB90_enter(void)
     if (dev < 0x10000u)
         return;
     sem = MEM32(dev + 0x30);
-    if (sem < 0x10000u || (uint32_t)(MEM32(dev + 0x2C) - MEM32(sem)) < 16u)
+    if (sem < 0x10000u || (uint32_t)(MEM32(dev + 0x2C) - MEM32(sem)) < s_fence_lag)
         return;
     QueryPerformanceCounter(&t0);
     for (;;) {
         SwitchToThread();
-        if ((uint32_t)(MEM32(dev + 0x2C) - MEM32(sem)) < 16u)
+        if ((uint32_t)(MEM32(dev + 0x2C) - MEM32(sem)) < s_fence_lag)
             break;
         QueryPerformanceCounter(&t1);
         if ((t1.QuadPart - t0.QuadPart) * 10 > freq.QuadPart) {
