@@ -24,6 +24,12 @@ and what to do when something misbehaves, see [Controllers, keyboard and mouse](
 | `skip` | `false` | Skip the launcher and start the game at once. The launcher shows on every launch unless this is on. Hold **Shift** while the game starts, or start it with `--launcher`, to see it anyway; turn this off in the overlay's Interface page or the launcher's own checkbox. Env `RECOMP_NO_LAUNCHER=1` skips it for one run. |
 | `profile` | (empty) | The profile the launcher's **Continue story** tile plays as, by name; the **Profiles** tile sets it. Empty, or a name no profile has, means the most recently saved profile. |
 
+## [update]
+
+| Key | Default | Meaning |
+|---|---|---|
+| `url` | (empty) | The link to `update.json` on your private update channel ([Launcher and overlay](launcher-and-overlay.md#updates)). Set, a portable copy (`Play.bat`) checks it when the launcher opens and offers newer versions; Settings > Maintenance > Updates has the field. Empty: no updates. |
+
 ## [debug]
 
 | Key | Default | Meaning |

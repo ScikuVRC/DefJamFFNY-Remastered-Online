@@ -47,6 +47,25 @@ remains in Interface. Display DPI and the existing text/control size setting sti
 - Test runs (`RECOMP_SETTINGS=none`) and headless runs (`RECOMP_HEADLESS=1`) do not show the launcher.
 - On macOS the Metal launcher closes before the game window opens. Its red close button/Cmd+Q quits.
 
+
+## Updates
+
+A portable copy of the game (a folder started with `Play.bat`) updates itself from a private
+channel of your own: no build tools, no Setup. Whoever builds the game runs
+`scripts/publish-update.py`, which packs the program, its symbols, the docs and the helper
+scripts into `defjam-<version>.zip` and writes `update.json` (version, size, SHA-256, signed
+with the mod catalogue's key). Both go wherever you like that gives a direct link (Dropbox,
+Google Drive: share links are turned into direct downloads). Every copy's `settings.ini` has the
+link to `update.json` as `[update] url`, or Settings > Maintenance > Updates > Update link;
+upload each new `update.json` over the old one so the link stays the same.
+
+When the launcher opens it checks that link (`setup/update.py` with the copy's own Python).
+A newer version puts **Update to vX** at the top of Home and in Maintenance; it downloads the
+zip, checks its signature and SHA-256, and replaces only the game's own files (never `game/`
+or `data/`). The running program is renamed `defjam_recomp.exe.old` (Windows allows that) and
+removed at the next start; if any step fails, every file moved is put back. **Restart to
+update** then starts the new version.
+
 ## The settings pages
 
 ![Advanced Display settings with brighter slider tracks and contextual help](media/launcher-advanced.png)

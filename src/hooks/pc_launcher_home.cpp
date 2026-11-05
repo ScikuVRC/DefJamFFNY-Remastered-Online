@@ -4,6 +4,7 @@
 #include "pc_ui_theme.h"
 #include "pc_ui_actions.h"
 #include "pc_mods.h"
+#include "pc_update.h"
 #include "pc_ui_internal.h"
 #include "input_host.h"
 #include "launcher_start.h"
@@ -13,6 +14,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #ifndef DEFJAM_VERSION
@@ -577,10 +579,35 @@ UiHomeResult ui_launcher_cinematic(const char *focus)
         // Configure and Advanced are the old Home's names for these, which test scripts click.
         const char *labels[] = {"Controls", "Settings", "Quit"}, *targets[] = {"Configure", "Advanced", "Quit"};
         const ImGuiStyle &style = ImGui::GetStyle();
+        // A newer version on the update channel (pc_update.h): one amber button before the others.
+        const pcui::UpdateView &uv = pcui::update_view();
+        std::string update_label;
+        if (pcui::update_busy() && uv.state == "available")
+            update_label = pcui::update_status();
+        else if (uv.state == "available")
+            update_label = "Update to " + uv.version;
+        else if (uv.state == "installed")
+            update_label = "Restart to update";
         float total = style.ItemSpacing.x * 2;
         for (const char *label : labels)
             total += ImGui::CalcTextSize(label).x + style.FramePadding.x * 2;
+        if (!update_label.empty())
+            total += ImGui::CalcTextSize(update_label.c_str()).x + style.FramePadding.x * 2 + style.ItemSpacing.x;
         ImGui::SetCursorScreenPos(ImVec2(b.x - pad - total, a.y + top));
+        if (!update_label.empty())
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.55f, 0.15f, .85f));
+            ImGui::BeginDisabled(pcui::update_busy());
+            bool hit = ImGui::Button(update_label.c_str());
+            ImGui::EndDisabled();
+            ImGui::PopStyleColor();
+            ui_target("UpdateHome");
+            if (hit && uv.state == "available")
+                pcui::update_start("install");
+            else if (hit && uv.state == "installed" && pcui::update_restart())
+                exit(0);
+            ImGui::SameLine();
+        }
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, .45f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, .14f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, .22f));

@@ -32,6 +32,7 @@
 #include <map>
 #include "pc_ui_model.h"
 #include "pc_mods.h"
+#include "pc_update.h"
 #include "pc_ui_theme.h"
 #include "pc_ui_actions.h"
 #include "pc_launcher_home.h"
@@ -1307,6 +1308,48 @@ static void page_maintenance(UiMode mode)
         ui_target((std::string("Copy ") + names[i]).c_str());
         ImGui::PopID();
     }
+    pcui::section("Updates");
+    {
+        // The private update channel (pc_update.cpp, setup/update.py, scripts/publish-update.py).
+        static char link[1024];
+        static bool loaded;
+        if (!loaded) { recomp_settings_get_text("update", "url", link, sizeof link, ""); loaded = true; }
+        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 26);
+        if (ImGui::InputTextWithHint("Update link", "https://... update.json", link, sizeof link))
+            recomp_settings_set_text("update", "url", link);
+        ui_target("update.url");
+        const pcui::UpdateView &uv = pcui::update_view();
+        ImGui::TextWrapped("This version: %s. %s", DEFJAM_VERSION, pcui::update_status().empty() ? uv.message.c_str()
+                                                                                              : pcui::update_status().c_str());
+        if (!uv.notes.empty() && uv.state == "available")
+            ImGui::TextWrapped("What's new: %s", uv.notes.c_str());
+        if (mode == UI_OVERLAY)
+            ImGui::TextWrapped("Updates are installed from the launcher.");
+        else if (!pcui::update_configured())
+            ImGui::TextDisabled(link[0] ? "This copy has no updater (setup/update.py and python/ beside the game)."
+                                        : "Paste the update link you were given to get new versions.");
+        else if (pcui::update_busy())
+        {
+            if (ImGui::Button("Cancel##update")) pcui::update_cancel();
+        }
+        else
+        {
+            if (ImGui::Button("Check now")) pcui::update_start("check");
+            ui_target("UpdateCheck");
+            if (uv.state == "available")
+            {
+                ImGui::SameLine();
+                if (ImGui::Button(("Update to " + uv.version).c_str())) pcui::update_start("install");
+                ui_target("UpdateInstall");
+            }
+            else if (uv.state == "installed")
+            {
+                ImGui::SameLine();
+                if (ImGui::Button("Restart now") && pcui::update_restart()) exit(0);
+                ui_target("UpdateRestart");
+            }
+        }
+    }
     pcui::section("Update / Repair");
     if (mode == UI_OVERLAY)
         ImGui::TextWrapped("Close the game and open Update / Repair in the launcher to continue in Setup.");
@@ -1945,6 +1988,9 @@ UiResult ui_draw(UiMode mode, float x, float y, float width, float height)
     g_help.clear();
     pcui::setup_poll();
     if (pcui::mod_poll()) refresh_packs(true);
+    pcui::update_poll();
+    if (mode == UI_LAUNCHER && pcui::update_configured())
+        pcui::update_check_once();      // once a run: is there a newer version on the update channel?
     static bool recovery_attempted = false;
     if (mode == UI_LAUNCHER && pcui::mod_recovery_needed() && !pcui::mod_busy() && !recovery_attempted) {
         recovery_attempted = true; pcui::mod_start("recover");

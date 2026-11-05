@@ -24,6 +24,10 @@ size_t pc_ui_settings(RecompSetting *out, size_t max)
         "The profile the launcher's Continue story plays as, by name (the Profiles tile sets it). "
         "Empty, or a name no profile has, means the most recently saved one.",
         "");
+    ADD("update", "url", RECOMP_SETTING_STRING, 0, 0, 0, NULL, NULL, 0,
+        "The link to update.json on your private update channel (scripts/publish-update.py). Set, a "
+        "portable copy checks it when the launcher opens and offers new versions. Empty: no updates.",
+        "");
     ADD("debug", "unlock_all", RECOMP_SETTING_BOOL, 0, 0, 0, NULL, "RECOMP_UNLOCK_ALL", RECOMP_SETTING_RESTART,
         "Debug: every fighter and venue is available on any profile, through the developers' own unlock "
         "routine in the game. Meant for testing; it changes the profile in memory and asks the game to save "
