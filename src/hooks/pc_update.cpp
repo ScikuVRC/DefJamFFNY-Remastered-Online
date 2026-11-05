@@ -139,7 +139,15 @@ bool update_poll()
 {
 #if defined(_WIN32)
     if (!s_running) return false;
-    auto p = section(state_dir() / "progress.ini", "progress");
+    /* Five times a second, not every frame: while the file is open here the helper cannot
+     * replace it (Windows), and at 60 reads a second its writes kept failing. */
+    static ULONGLONG last_read;
+    ULONGLONG now = GetTickCount64();
+    std::map<std::string, std::string> p;
+    if (now - last_read >= 200) {
+        last_read = now;
+        p = section(state_dir() / "progress.ini", "progress");
+    }
     if (!p["message"].empty()) {
         s_status = p["message"];
         unsigned long long done = strtoull(p["done"].c_str(), nullptr, 10), total = strtoull(p["total"].c_str(), nullptr, 10);

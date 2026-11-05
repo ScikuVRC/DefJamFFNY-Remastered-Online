@@ -30,6 +30,7 @@ import re
 import shutil
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -140,10 +141,23 @@ class Progress:
             lines += [f'{k}={str(v).replace(chr(10), " ").replace(chr(13), " ")[:4000]}' for k, v in values.items()]
         tmp = self.root / (name + '.tmp')
         tmp.write_text('\n'.join(lines) + '\n', encoding='utf-8')
-        os.replace(tmp, self.root / name)
+        # The launcher reads these files while the job runs, and Windows refuses to replace
+        # a file another program has open: try again for a moment. Running the job
+        # under the launcher, the first download died at 2 MB on that refusal.
+        for attempt in range(50):
+            try:
+                os.replace(tmp, self.root / name)
+                return True
+            except PermissionError:
+                time.sleep(0.01)
+        return False
 
     def progress(self, message, done=0, total=0):
-        self.write('progress.ini', {'progress': {'message': message, 'done': done, 'total': total}})
+        # Progress only informs the launcher: a write that still fails costs one update of it.
+        try:
+            self.write('progress.ini', {'progress': {'message': message, 'done': done, 'total': total}})
+        except OSError:
+            pass
 
     def view(self, **values):
         self.write('view.ini', {'update': values})
