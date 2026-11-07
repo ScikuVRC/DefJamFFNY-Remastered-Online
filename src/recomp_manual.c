@@ -39,6 +39,7 @@
 #include "hooks/scene_launcher.h"
 #include "hooks/dev_module.h"
 #include "patches/picture.h"
+#include "patches/options_volume.h"
 #include "patches/menu_geometry.h"
 
 /* Crowd test controls (src/hooks/crowd_control.c, RECOMP_TEST_CROWD; off unless set). */
@@ -331,6 +332,15 @@ extern void sub_001EBEA0_gen(void);
 void sub_001EBEA0(void)
 {
     input_late_lock();sub_001EBEA0_gen();input_late_unlock();
+}
+/* The profile load (thiscall, this = the profile manager): the saved volumes go to the mixer
+ * afterwards (src/patches/options_volume.c). */
+extern void sub_00014540_gen(void);
+void sub_00014540(void)
+{
+    uint32_t manager=g_ecx;
+    sub_00014540_gen();
+    options_volume_after_load(manager);
 }
 /* Equivalent human input producers for the three game-mode update paths.
  * sub_001AD380 is CPU-only. Include writer VA in each cache observation. */
