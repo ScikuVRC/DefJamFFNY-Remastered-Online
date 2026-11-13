@@ -32,6 +32,7 @@
 #include "d3d8_vk.h"
 #include "hooks/pc_settings.h"
 #include "hooks/pc_input.h"
+#include "hooks/save_activity.h"
 #include "hooks/pc_ui.h"
 #include "hooks/netplay_router.h"
 
@@ -456,6 +457,10 @@ static void handle_event(const SDL_Event *ev)
         fflush(stdout);
         pc_input_stop();                    /* no pad left vibrating */
         netplay_router_close();             /* nor an online host's port forward left in the router */
+        /* Events run on the main thread; the game thread may be writing a save.
+         * Let it close the file first, a few seconds at most. src/hooks/save_activity.c */
+        save_activity_wait_idle(5000);
+        fflush(stderr);
         _Exit(0);
     case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
@@ -666,3 +671,12 @@ int watchpoint_init(void)
 }
 
 int watchpoint_handle_trap(void *ctx) { (void)ctx; return 0; }
+
+/* Ask for the same exit the window's close button does (test control in recomp_manual.c). */
+void host_request_close(void)
+{
+    SDL_Event event;
+    SDL_zero(event);
+    event.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&event);
+}
