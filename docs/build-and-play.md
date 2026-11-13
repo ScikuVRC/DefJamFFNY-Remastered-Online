@@ -182,6 +182,11 @@ the complete save root after testing.
 ## Troubleshooting
 
 - Read the terminal error and `logs/run-*.log.err` if a process started.
+- The game closed by itself: when it refuses to start or stops, it shows a message on
+  every platform (except under `RECOMP_HEADLESS`), logs a `[FATAL]` line and writes the
+  message to `last-error.txt` in the data folder. The launcher shows it at the next start
+  until you dismiss it, so a message hidden behind the game window (Steam Deck Game Mode,
+  macOS full screen) is not lost.
 - Missing `game/default.xbe`: check the junction and extraction.
 - Freshness error: rerun the named analysis/lift/build step.
 - Missing compiler: check the C++ workload and bundled CMake/Ninja tools.

@@ -17,6 +17,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #ifndef DEFJAM_VERSION
 #define DEFJAM_VERSION "dev"
@@ -181,6 +184,62 @@ static void ui_home_poster(UiHomeResult &r, float w, float h)
     ImGui::EndChild();
 }
 
+// <data>/last-error.txt: the game's last fatal message (host_fatal in src/main.c). On a Steam
+// Deck or a Mac the dialog can go unseen, so Home repeats it until the player dismisses it.
+static std::string last_error(bool dismiss = false)
+{
+    static bool loaded = false;
+    static std::string text;
+    auto path = std::filesystem::u8path(pcui::folder_path(pcui::Folder::Data)) / "last-error.txt";
+    std::error_code error;
+    if (dismiss) { std::filesystem::remove(path, error); text.clear(); return text; }
+    if (loaded) return text;
+    loaded = true;
+    if (!std::filesystem::is_regular_file(path, error) || std::filesystem::file_size(path, error) > 8192) return text;
+    std::ifstream input(path, std::ios::binary);
+    text.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) text.pop_back();
+    return text;
+}
+
+// Both Homes (the cinematic one and this classic one) draw their own layout, so the message
+// comes up as a popup over either, once per launcher start. Dismiss deletes the file;
+// Later (or Escape / B) hides it until the next start.
+static void last_error_notice(float s)
+{
+    static bool offered = false;
+    if (!offered && !last_error().empty() &&
+        !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
+    {
+        offered = true;
+        ImGui::OpenPopup("Last error##home");
+    }
+    ImGui::SetNextWindowSizeConstraints(ImVec2(360 * s, 0), ImVec2(640 * s, FLT_MAX));
+    if (!ImGui::BeginPopupModal("Last error##home", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar))
+        return;
+    pcui::heading("THE GAME STOPPED", 24 * s);
+    ImGui::Spacing();
+    ImGui::TextWrapped("It stopped with this error last time:");
+    ImGui::Spacing();
+    ImGui::TextWrapped("%s", last_error().c_str());
+    ImGui::Spacing();
+    if (ImGui::Button("Dismiss", ImVec2(120 * s, 0)))
+    {
+        last_error(true);
+        ImGui::CloseCurrentPopup();
+    }
+    ui_target("Dismiss error");
+    if (ImGui::IsWindowAppearing())
+        ImGui::SetItemDefaultFocus();
+    ImGui::SameLine();
+    bool back = !ImGui::IsWindowAppearing() &&
+                (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false));
+    if (ImGui::Button("Later", ImVec2(120 * s, 0)) || back)
+        ImGui::CloseCurrentPopup();
+    ui_target("Later error");
+    ImGui::EndPopup();
+}
+
 UiHomeResult ui_launcher_home(float width, float height, const char *focus)
 {
     UiHomeResult r;
@@ -205,6 +264,7 @@ UiHomeResult ui_launcher_home(float width, float height, const char *focus)
         ui_home_utilities(r, focus, 0, 1, 2, "main utilities");
         ui_home_utilities(r, focus, 2, 4, 3, "file utilities", 36);
         ImGui::EndChild();
+        last_error_notice(s);
         return r;
     }
 
@@ -222,6 +282,7 @@ UiHomeResult ui_launcher_home(float width, float height, const char *focus)
     ImGui::EndChild();
     ImGui::Spacing();
     ui_home_utilities(r, focus, 0, 4, std::max(1, std::min(5, (int)(width / (145 * s)))), "utilities");
+    last_error_notice(s);
     return r;
 }
 
@@ -783,5 +844,6 @@ UiHomeResult ui_launcher_cinematic(const char *focus)
     }
     profile_picker(s, w, h);
     quit_question(r, s);
+    last_error_notice(s);
     return r;
 }
