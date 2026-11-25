@@ -90,6 +90,7 @@ typedef int sock_t;
 #include "netplay_saves.h"
 #include "netplay_invite.h"
 #include "netplay_record.h"
+#include "rollback.h"
 #include "recomp/gen/recomp_types.h"
 #include "test_observations.h"
 
@@ -2524,7 +2525,9 @@ int netplay_replay_check(const char *path, char *why, int size)
         snprintf(why, (size_t)size, "Recorded on v%s; this is v%s", version, DEFJAM_VERSION);
         return 0;
     }
-    if (strcmp(program, s_fp_program)) {
+    /* RECOMP_REPLAY_ANY_BUILD=1: a development build plays it anyway (its hash checks say
+     * whether it still plays the same fight). */
+    if (strcmp(program, s_fp_program) && !getenv("RECOMP_REPLAY_ANY_BUILD")) {
         snprintf(why, (size_t)size, "Recorded by a different build of v%s", version);
         return 0;
     }
@@ -2640,10 +2643,292 @@ static int replay_startup(const char *path)
     return launch_match(&m);
 }
 
+/* RECOMP_ROLLBACK_TEST=<first>,<steps>,<every> (a replay only): rollback's rewind test. At
+ * step <first> the game's state is saved; <steps> steps later the state is saved again and
+ * the first put back, and the same steps play again from the replay's inputs; when they are
+ * done, every page of memory is compared with the first time through, and the replay's own
+ * hash checks go on. Then again <every> steps on. */
+static RollbackState *s_rb_start, *s_rb_end;
+static long s_rb_at = -1, s_rb_len, s_rb_every;
+static int s_rb_phase, s_rb_parsed, s_rb_track, s_rb_tracking;
+static int s_rb_fast = -1;              /* RECOMP_ROLLBACK_FAST=1: re-run the steps inside one frame */
+static long s_rb_fast_runs;
+static double s_rb_fast_ms, s_rb_fast_worst;
+
+static void rollback_test(void);
+static double rb_ms(void);
+
+/* The start of a game tick (recomp_manual.c, sub_00077040): with RECOMP_ROLLBACK_FAST, the rewind
+ * test happens here, and the steps to play again run at once. Returns how many extra ticks to run. */
+int netplay_rollback_frame(void)
+{
+    int before;
+    if (s_rb_fast < 0) s_rb_fast = getenv("RECOMP_ROLLBACK_FAST") != NULL;
+    if (s_rb_fast <= 0 || !s_replaying || s_step < 1) return 0;
+    before = s_rb_phase;
+    rollback_crt_list_check("at a frame's start", s_step);
+    rollback_test();
+    if (before != 2 && s_rb_phase == 2) rollback_crt_list_check("right after a restore", s_step);
+    return before != 2 && s_rb_phase == 2 ? (int)s_rb_len : 0;
+}
+
+/* The extra ticks ran. */
+void netplay_rollback_frame_done(double ms, int ticks)
+{
+    s_rb_fast_runs++;
+    s_rb_fast_ms += ms;
+    if (ms > s_rb_fast_worst) s_rb_fast_worst = ms;
+    rollback_test();            /* the re-run is done: compare, and set up the next */
+    if (s_rb_fast_runs % 50 == 1)
+        fprintf(stderr, "[ROLLBACK] played %d steps in %.2f ms, now at step %ld (%ld runs, mean %.2f ms, worst %.2f ms)\n",
+                ticks, ms, s_step, s_rb_fast_runs, s_rb_fast_ms / (double)s_rb_fast_runs, s_rb_fast_worst);
+}
+
+double netplay_rollback_now_ms(void)
+{
+    return rb_ms();
+}
+
+/* Has the re-run reached the step it started from? */
+int netplay_rollback_rerun_more(void)
+{
+    return s_rb_phase == 2 && s_step < s_rb_at + s_rb_len;
+}
+
+long netplay_rollback_step(void)
+{
+    return s_step;
+}
+
+int netplay_rollback_active(void)
+{
+    return s_rb_parsed && s_rb_at >= 0;
+}
+
+/* What each sound call returned, per step. A re-run makes no sound calls but must see the same
+ * answers: a voice or a stream's handle the fight keeps for later must still be the real one, or
+ * every later change to that sound goes nowhere. */
+#define SOUND_STEPS 256
+#define SOUND_CALLS 256
+static struct {
+    long step;
+    int count;
+    uint32_t fn[SOUND_CALLS], result[SOUND_CALLS];
+    uint32_t out[SOUND_CALLS][32][2];
+    int outs[SOUND_CALLS];
+} s_sound[SOUND_STEPS];
+static long s_sound_cursor_step = -1;
+static int s_sound_cursor;
+
+void rollback_sound_record(uint32_t fn, uint32_t result)
+{
+    int slot;
+    static uint32_t out[32][2];
+    int outs = 0;
+    /* A call made inside another sound call isn't the fight's to repeat. */
+    if (!rollback_sound_end(out, &outs)) return;
+    if (!s_rb_parsed || s_rb_at < 0) return;
+    {
+        static long from = -2, to;
+        if (from == -2) {
+            const char *v = getenv("RECOMP_ROLLBACK_SOUNDLOG");
+            from = -1;
+            if (v) sscanf(v, "%ld,%ld", &from, &to);
+        }
+        if (s_step >= from && s_step <= to && from >= 0)
+            fprintf(stderr, "[ROLLBACK] step %ld sound call %06x -> %08x (args %08x %08x %08x)\n", s_step, fn, result, MEM32(g_esp + 4), MEM32(g_esp + 8), MEM32(g_esp + 12));
+    }
+    slot = (int)(s_step & (SOUND_STEPS - 1));
+    if (s_sound[slot].step != s_step) {
+        s_sound[slot].step = s_step;
+        s_sound[slot].count = 0;
+    }
+    if (s_sound[slot].count < SOUND_CALLS) {
+        s_sound[slot].fn[s_sound[slot].count] = fn;
+        s_sound[slot].result[s_sound[slot].count] = result;
+        memcpy(s_sound[slot].out[s_sound[slot].count], out, sizeof out);
+        s_sound[slot].outs[s_sound[slot].count] = outs;
+        s_sound[slot].count++;
+    }
+}
+
+uint32_t rollback_sound_replayed(uint32_t fn)
+{
+    int slot = (int)(s_step & (SOUND_STEPS - 1)), i;
+    if (getenv("RECOMP_ROLLBACK_SOUNDLOG")) fprintf(stderr, "[ROLLBACK] step %ld re-run skips %06x\n", s_step, fn);
+    if (s_sound_cursor_step != s_step) {
+        s_sound_cursor_step = s_step;
+        s_sound_cursor = 0;
+    }
+    if (s_sound[slot].step != s_step) return 0;
+    for (i = s_sound_cursor; i < s_sound[slot].count; i++) {
+        if (s_sound[slot].fn[i] == fn) {
+            int k;
+            s_sound_cursor = i + 1;
+            for (k = 0; k < s_sound[slot].outs[i]; k++)
+                MEM32(s_sound[slot].out[i][k][0]) = s_sound[slot].out[i][k][1];
+            return s_sound[slot].result[i];
+        }
+    }
+    return 0;
+}
+
+int netplay_resimulating(void)
+{
+    return s_rb_phase == 2 && s_step < s_rb_at + s_rb_len;
+}
+
+/* After the game's fight step (recomp_manual.c, sub_00087700). */
+void netplay_step_done(void)
+{
+    if (s_rb_tracking && s_rb_track == 1) {
+        rollback_track_end();
+        s_rb_tracking = 0;
+    }
+}
+
+static double rb_ms(void)
+{
+#if defined(_WIN32)
+    LARGE_INTEGER now, freq;
+    QueryPerformanceCounter(&now);
+    QueryPerformanceFrequency(&freq);
+    return (double)now.QuadPart * 1000.0 / (double)freq.QuadPart;
+#else
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec * 1000.0 + t.tv_nsec / 1e6;
+#endif
+}
+
+static void rollback_test(void)
+{
+    double t;
+    if (!s_rb_parsed) {
+        const char *v = getenv("RECOMP_ROLLBACK_TEST");
+        s_rb_parsed = 1;
+        if (v && sscanf(v, "%ld,%ld,%ld", &s_rb_at, &s_rb_len, &s_rb_every) == 3 && s_rb_at > 0 && s_rb_len > 0) {
+            s_rb_start = rollback_new();
+            s_rb_end = rollback_new();
+            if (!s_rb_start || !s_rb_end) s_rb_at = -1;
+            fprintf(stderr, "[ROLLBACK] test: rewind %ld steps at step %ld, every %ld\n", s_rb_len, s_rb_at, s_rb_every);
+            {
+                const char *tr = getenv("RECOMP_ROLLBACK_TRACK");
+                s_rb_track = !tr ? 0 : !strcmp(tr, "frame") ? 2 : 1;
+            }
+            if (s_rb_track) fprintf(stderr, "[ROLLBACK] tracking what each step writes; restores put back only that\n");
+            {
+                extern uint32_t g_xbox_stack_base, g_xbox_stack_size;
+                fprintf(stderr, "[ROLLBACK] guest stacks %08x..%08x (256 KiB worker slices from the base); "
+                                "this thread's stack pointer %08x\n", g_xbox_stack_base, g_xbox_stack_base + g_xbox_stack_size,
+                        (unsigned)g_esp);
+            }
+            {
+                /* RECOMP_ROLLBACK_SKIP=<hex first>-<hex end>,...: left alone by every restore */
+                const char *skip = getenv("RECOMP_ROLLBACK_SKIP");
+                const char *skipfile = getenv("RECOMP_ROLLBACK_SKIPFILE");
+                if (skipfile) {
+                    FILE *sf = fopen(skipfile, "r");
+                    unsigned a, b;
+                    int count = 0;
+                    while (sf && fscanf(sf, "%x %x", &a, &b) == 2) { rollback_skip(a, b); count++; }
+                    if (sf) fclose(sf);
+                    fprintf(stderr, "[ROLLBACK] %d ranges left alone, from %s\n", count, skipfile);
+                }
+                rollback_skip_audio();
+                rollback_own_reset();
+                unsigned first, end;
+                int used;
+                while (skip && sscanf(skip, "%x-%x%n", &first, &end, &used) == 2) {
+                    rollback_skip(first, end);
+                    fprintf(stderr, "[ROLLBACK] restores leave %08x..%08x alone\n", first, end);
+                    skip += used;
+                    if (*skip == ',') skip++;
+                }
+            }
+        } else s_rb_at = -1;
+    }
+    if (s_rb_at < 0) return;
+    if (s_rb_phase == 0 && s_step == s_rb_at) {
+        t = rb_ms();
+        rollback_save(s_rb_start);
+        fprintf(stderr, "[ROLLBACK] saved at step %ld in %.2f ms\n", s_step, rb_ms() - t);
+        s_rb_phase = 1;
+    } else if (s_rb_phase == 1 && s_step == s_rb_at + s_rb_len) {
+        uint32_t ranges[64][2];
+        int n, pages, i;
+        rollback_save(s_rb_end);
+        pages = rollback_compare(s_rb_start, ranges, 64, &n);
+        (void)ranges; (void)i;
+        fprintf(stderr, "[ROLLBACK] Direct3D device at %08x\n", (unsigned)MEM32(0x00234768u));
+        { static int dumped; if (!dumped++) rollback_dump_changes(s_rb_start, stderr); }
+        t = rb_ms();
+        if (s_rb_track) rollback_restore_fight(s_rb_start);
+        else rollback_restore(s_rb_start);
+        fprintf(stderr, "[ROLLBACK] at step %ld: %d pages changed in %ld steps; restored step %ld in %.2f ms\n",
+                s_step, pages, s_rb_len, s_rb_at, rb_ms() - t);
+        if (s_rb_track) {
+            long steps, bytes, other;
+            rollback_track_stats(&steps, &bytes, &other);
+            fprintf(stderr, "[ROLLBACK] tracked %ld steps: %ld fight bytes, %ld pages first written by other threads\n",
+                    steps, bytes, other);
+            if (s_rb_at == 600) rollback_dump_mask(stderr, 64);
+        }
+        {
+            /* RECOMP_ROLLBACK_WATCH=<hex>,...: log who writes these once the state is back */
+            const char *w = getenv("RECOMP_ROLLBACK_WATCH");
+            unsigned at;
+            int used;
+            { static int said; if (!said++) fprintf(stderr, "[ROLLBACK] %ld pages hold bytes that are not the fight's\n", rollback_own_count()); }
+            fprintf(stderr, "[ROLLBACK] mode manager %08x, quit byte %u\n", (unsigned)MEM32(0x2FB1A4u), (unsigned)MEM8(MEM32(0x2FB1A4u) + 0x20u));
+            if (w) {
+                uint32_t sp = (uint32_t)g_esp, k;
+                for (k = 0; k < 256; k++) {
+                    if (MEM32(sp + k * 4) != 0x00011D7Bu) continue;
+                    fprintf(stderr, "[ROLLBACK] main loop's done byte at %08x = %u\n", sp + k * 4 + 8 + 0x13, (unsigned)MEM8(sp + k * 4 + 8 + 0x13));
+                    rollback_watch(sp + k * 4 + 8 + 0x13);
+                    break;
+                }
+            }
+            while (w && sscanf(w, "%x%n", &at, &used) == 1) {
+                rollback_watch(at);
+                w += used;
+                if (*w == ',') w++;
+            }
+        }
+        {
+            extern void rollback_releases_rewound(long step);
+            rollback_releases_rewound(s_rb_at);
+        }
+        s_step = s_rb_at;
+        s_rb_phase = 2;
+    } else if (s_rb_phase == 2 && s_step == s_rb_at + s_rb_len) {
+        uint32_t ranges[12][2];
+        int n = 0, pages = rollback_compare(s_rb_end, ranges, 12, &n), i;
+        fprintf(stderr, "[ROLLBACK] played steps %ld..%ld again: %s (%d pages differ from the first time)\n",
+                s_rb_at + 1, s_step, pages ? "DIFFERENT" : "identical", pages);
+        for (i = 0; i < n; i++)
+            fprintf(stderr, "[ROLLBACK]   differs %08x..%08x\n", ranges[i][0], ranges[i][1]);
+        s_rb_phase = 0;
+        s_rb_at = s_rb_every > 0 ? s_rb_at + s_rb_every : -1;
+    }
+    fflush(stderr);
+}
+
 /* A replay's step: its inputs from the file, and its hash checked against the recording. */
 static void replay_step(void)
 {
     long k;
+    if (s_rb_tracking && s_rb_track == 2) {      /* a frame's tracking ends where the next step starts */
+        rollback_track_end();
+        s_rb_tracking = 0;
+    }
+    rollback_learn_step(s_step);
+    if (s_rb_fast <= 0) rollback_test();
+    if (s_rb_track && !s_rb_tracking) {
+        rollback_track_begin();
+        s_rb_tracking = 1;
+    }
     s_step++;
     if (s_step == 1) banner(s_play_title, 5000);
     if (s_step <= s_play_steps) memcpy(s_current, s_play_in[s_step], sizeof s_current);

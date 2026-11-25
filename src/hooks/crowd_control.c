@@ -67,6 +67,7 @@
 #include "recorder.h"
 #include "test_observations.h"
 #include "lockstep.h"
+#include "rollback.h"
 
 extern void sub_000AA0D0(void);
 extern void sub_000DB620_gen(void);     /* the background crowd's time (thiscall, dt) */
@@ -502,4 +503,31 @@ void defjam_crowd_step(void)
                 s_seeds[i].generator, args[0], args[1]);
     }
     fflush(stderr);
+}
+
+/* Rollback (rollback.h): what this module keeps of a fight on the host side. */
+void defjam_crowd_rollback_blocks(rollback_block_fn add)
+{
+    add(&s_spect_calls, sizeof s_spect_calls);
+    add(&s_spect_manager, sizeof s_spect_manager);
+    add(&s_crowd_object, sizeof s_crowd_object);
+    add(&s_updates, sizeof s_updates);
+    add(&s_live_updates, sizeof s_live_updates);
+    add(&s_in_window, sizeof s_in_window);
+    add(&s_held, sizeof s_held);
+    add(&s_gate_value, sizeof s_gate_value);
+    add(&s_crowd_fight, sizeof s_crowd_fight);
+    add(&s_crowd_dt, sizeof s_crowd_dt);
+    add(&s_crowd_rand, sizeof s_crowd_rand);
+    add(&s_saved_rand, sizeof s_saved_rand);
+    add(&s_rand_ptd, sizeof s_rand_ptd);
+    add(&s_crowd_rand_on, sizeof s_crowd_rand_on);
+    add(s_seeds, sizeof s_seeds);
+    add(&s_seed_count, sizeof s_seed_count);
+    add(s_private_rng, sizeof s_private_rng);
+    add(s_saved_rng, sizeof s_saved_rng);
+    add(&s_private_seeded, sizeof s_private_seeded);
+    add(&s_spect_self, sizeof s_spect_self);
+    add(&s_spect_dt, sizeof s_spect_dt);
+    add(&s_spect_fight, sizeof s_spect_fight);
 }

@@ -93,8 +93,1104 @@ static void ws_hud_heartbeat(void)
 /* Match telemetry (src/hooks/test_telemetry.c): the fight's simulation step,
  * match set-up, the result recorder and the random number generator's seeding.
  * Read-only, except that RECOMP_TEST_RNG_SEED replaces the seed argument. */
-void sub_00087700_enter(void)
+/* The step itself is wrapped (sub_00087700_gen is the game's), so rollback can see where a
+ * step ends as well as where it starts (netplay_step_done). */
+/* The sound engine's allocator (rollback.c explains). */
+extern void sub_0001DC10_gen(void);
+extern void sub_0001DC20_gen(void);
+extern uint32_t rollback_sound_alloc(uint32_t size);
+extern int rollback_sound_free(uint32_t addr);
+void sub_0001DC10(void)
 {
+    uint32_t got = rollback_sound_alloc(MEM32(g_esp + 4));
+    if (!got) { sub_0001DC10_gen(); return; }
+    g_eax = got;
+    g_esp += 16;    /* ret 12 */
+}
+void sub_0001DC20(void)
+{
+    if (!rollback_sound_free(MEM32(g_esp + 4))) { sub_0001DC20_gen(); return; }
+    g_esp += 8;     /* ret 4 */
+}
+
+/* While rollback re-runs steps the fight's calls into the sound system (CSIS) do nothing: what
+ * they would start was started the first time through, and is still playing. */
+extern int netplay_resimulating(void);
+extern uint32_t rollback_sound_replayed(uint32_t fn);
+extern void rollback_sound_record(uint32_t fn, uint32_t result);
+extern void rollback_sound_begin(void);
+#ifndef ON_FIGHT_THREAD
+#define ON_FIGHT_THREAD() (g_esp >= 0x00F40000u && g_esp < 0x00F80000u)
+#endif
+/* A sound object's reference count cannot be rewound: a pointer brought back by a rewind must
+ * still be good. While rollback is on, a release made the first time through a step really happens
+ * once that step is older than any rewind can reach. A rewind takes back the releases of the steps
+ * it undoes, and the re-run makes them again. */
+extern int netplay_rollback_active(void);
+extern int netplay_resimulating(void);
+extern long netplay_rollback_step(void);
+extern void sub_0013A430_gen(void);
+#define RELEASES 4096
+#define RELEASE_AFTER_STEPS 64
+static struct { uint32_t object; long step; } s_release[RELEASES];
+static int s_release_first, s_release_count;
+void sub_0013A430(void)
+{
+    if (!netplay_rollback_active()) { sub_0013A430_gen(); return; }
+    if (s_release_count < RELEASES) {
+        int at = (s_release_first + s_release_count++) % RELEASES;
+        s_release[at].object = g_ecx;
+        s_release[at].step = netplay_rollback_step();
+    }
+    g_eax = 0;
+    g_esp += 4;
+}
+void rollback_releases_rewound(long step)
+{
+    while (s_release_count > 0 && s_release[(s_release_first + s_release_count - 1) % RELEASES].step >= step)
+        s_release_count--;
+}
+/* Is this still a sound object? Its reference count is small, and its list of subscribers is a
+ * list of nodes in guest memory with code to call. Skipping a release leaks a few bytes until the
+ * match ends; running one on a dead object crashes it. */
+static int release_guest_ok(uint32_t at)
+{
+    return (at >= 0x00010000u && at < 0x04000000u) || (at >= 0x80000000u && at < 0x84000000u);
+}
+static int release_object_ok(uint32_t object)
+{
+    uint32_t node;
+    int hops = 0;
+    if (!release_guest_ok(object) || (object & 3u)) return 0;
+    if (MEM32(object + 4) == 0 || MEM32(object + 4) > 4096u) return 0;
+    for (node = MEM32(object + 0xC); node; node = MEM32(node)) {
+        uint32_t fn = 0;
+        if (!release_guest_ok(node) || ++hops > 256) return 0;
+        fn = MEM32(node + 8);
+        if (fn < 0x00011000u || fn >= 0x00285240u) return 0;
+    }
+    return 1;
+}
+static void rollback_run_releases(void)
+{
+    long now = netplay_rollback_step();
+    int active = netplay_rollback_active();
+    while (s_release_count > 0 && (!active || now - s_release[s_release_first].step > RELEASE_AFTER_STEPS)) {
+        uint32_t ecx_was = g_ecx;
+        g_ecx = s_release[s_release_first].object;
+        s_release_first = (s_release_first + 1) % RELEASES;
+        s_release_count--;
+        if (release_object_ok(g_ecx)) {
+            g_esp -= 4; MEM32(g_esp) = 0;
+            sub_0013A430_gen();
+        } else {
+            static int said;
+            if (said++ < 8) fprintf(stderr, "[ROLLBACK] release of %08x dropped: not a live sound object\n", g_ecx);
+        }
+        g_ecx = ecx_was;
+    }
+}
+extern void sub_0013A890_gen(void);
+extern void sub_0013AAF0_gen(void);
+extern void sub_0013A9E0_gen(void);
+extern void sub_0013A850_gen(void);
+void sub_0013A890(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013A890u); g_esp += 8; return; }
+    rollback_sound_begin();
+    sub_0013A890_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013A890u, g_eax);
+}
+void sub_0013AAF0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013AAF0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013AAF0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013AAF0u, g_eax);
+}
+void sub_0013A9E0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013A9E0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013A9E0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013A9E0u, g_eax);
+}
+void sub_0013A850(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013A850u); g_esp += 8; return; }
+    rollback_sound_begin();
+    sub_0013A850_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013A850u, g_eax);
+}
+
+/* The game heap's allocate and free (its vtable, 0x28BB14). In a fight with rollback on the
+ * heap's books belong to the fight's thread: other threads get their memory elsewhere, and what
+ * they free waits for it. A block the fight's thread is given is the fight's from then on. */
+extern void sub_0002A140_gen(void);
+extern void sub_0002A180_gen(void);
+extern void rollback_own_clear(uint32_t addr, uint32_t size);
+extern int rollback_defer_free(uint32_t addr);
+extern uint32_t rollback_deferred_pop(void);
+extern int rollback_heapfix(void);
+extern int rollback_in_library(void);
+extern void rollback_lib_enter(void);
+extern void rollback_lib_leave(void);
+static long s_lib_allocs;
+void sub_0002A140(void)
+{
+    uint32_t size = MEM32(g_esp + 4);
+    if (netplay_rollback_active() && (!ON_FIGHT_THREAD() || (rollback_heapfix() && rollback_in_library()))) {
+        if (ON_FIGHT_THREAD() && s_lib_allocs++ < 8) fprintf(stderr, "[ROLLBACK] library allocation of %u bytes on the fight's thread\n", size);
+        uint32_t got = rollback_sound_alloc(size);
+        if (got) { g_eax = got; g_esp += 8; return; }   /* ret 4 */
+    }
+    sub_0002A140_gen();
+    if (ON_FIGHT_THREAD() && g_eax) rollback_own_clear(g_eax, size);
+}
+void sub_0002A180(void)
+{
+    uint32_t addr = MEM32(g_esp + 4);
+    if (rollback_sound_free(addr)) { g_esp += 8; return; }   /* ret 4 */
+    if (netplay_rollback_active() && !ON_FIGHT_THREAD() && rollback_defer_free(addr)) { g_esp += 8; return; }
+    sub_0002A180_gen();
+}
+/* The CRT's heap (allocate sub_001E9AB0, free sub_001E9F90), the same way. Its frees are queued
+ * with the low bit set. */
+extern void sub_001E9AB0_gen(void);
+extern void sub_001E9F90_gen(void);
+void sub_001E9AB0(void)
+{
+    uint32_t size = MEM32(g_esp + 8);
+    if (netplay_rollback_active() && (!ON_FIGHT_THREAD() || (rollback_heapfix() && rollback_in_library()))) {
+        if (ON_FIGHT_THREAD() && s_lib_allocs++ < 8) fprintf(stderr, "[ROLLBACK] library allocation of %u bytes on the fight's thread (CRT)\n", size);
+        uint32_t got = rollback_sound_alloc(size);
+        if (got) { g_eax = got; g_esp += 4; return; }
+    }
+    sub_001E9AB0_gen();
+    if (ON_FIGHT_THREAD() && g_eax) rollback_own_clear(g_eax, size);
+}
+void sub_001E9F90(void)
+{
+    uint32_t addr = MEM32(g_esp + 4);
+    if (rollback_sound_free(addr)) { g_esp += 4; return; }
+    if (addr && netplay_rollback_active() && !ON_FIGHT_THREAD() && rollback_defer_free(addr | 1u)) { g_esp += 4; return; }
+    sub_001E9F90_gen();
+}
+/* Every sound library entry point the game calls: nothing while rollback re-runs steps on the
+ * fight's thread. Generated from the lifted code. */
+extern void sub_0011C230_gen(void);
+void sub_0011C230(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011C230u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011C230_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011C230u, g_eax);
+}
+extern void sub_0011C3B0_gen(void);
+void sub_0011C3B0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011C3B0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011C3B0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011C3B0u, g_eax);
+}
+extern void sub_0011C490_gen(void);
+void sub_0011C490(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011C490u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011C490_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011C490u, g_eax);
+}
+extern void sub_0011C880_gen(void);
+void sub_0011C880(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011C880u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011C880_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011C880u, g_eax);
+}
+extern void sub_0011C9C0_gen(void);
+void sub_0011C9C0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011C9C0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011C9C0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011C9C0u, g_eax);
+}
+extern void sub_0011CA00_gen(void);
+void sub_0011CA00(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011CA00u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011CA00_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011CA00u, g_eax);
+}
+extern void sub_0011E3B0_gen(void);
+void sub_0011E3B0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011E3B0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011E3B0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011E3B0u, g_eax);
+}
+extern void sub_0011EFB0_gen(void);
+void sub_0011EFB0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011EFB0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011EFB0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011EFB0u, g_eax);
+}
+extern void sub_0011F0B0_gen(void);
+void sub_0011F0B0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011F0B0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011F0B0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011F0B0u, g_eax);
+}
+extern void sub_0011F0D0_gen(void);
+void sub_0011F0D0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011F0D0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011F0D0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011F0D0u, g_eax);
+}
+extern void sub_0011F5F0_gen(void);
+void sub_0011F5F0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011F5F0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011F5F0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011F5F0u, g_eax);
+}
+extern void sub_0011F6E0_gen(void);
+void sub_0011F6E0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011F6E0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011F6E0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011F6E0u, g_eax);
+}
+extern void sub_0011F9E0_gen(void);
+void sub_0011F9E0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011F9E0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011F9E0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011F9E0u, g_eax);
+}
+extern void sub_0011FA30_gen(void);
+void sub_0011FA30(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011FA30u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011FA30_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011FA30u, g_eax);
+}
+extern void sub_0011FA60_gen(void);
+void sub_0011FA60(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011FA60u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011FA60_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011FA60u, g_eax);
+}
+extern void sub_0011FCE0_gen(void);
+void sub_0011FCE0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011FCE0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011FCE0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011FCE0u, g_eax);
+}
+extern void sub_0011FD70_gen(void);
+void sub_0011FD70(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0011FD70u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0011FD70_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0011FD70u, g_eax);
+}
+extern void sub_001200F0_gen(void);
+void sub_001200F0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001200F0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001200F0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001200F0u, g_eax);
+}
+extern void sub_00120110_gen(void);
+void sub_00120110(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120110u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120110_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120110u, g_eax);
+}
+extern void sub_00120240_gen(void);
+void sub_00120240(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120240u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120240_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120240u, g_eax);
+}
+extern void sub_00120270_gen(void);
+void sub_00120270(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120270u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120270_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120270u, g_eax);
+}
+extern void sub_001203A0_gen(void);
+void sub_001203A0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001203A0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001203A0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001203A0u, g_eax);
+}
+extern void sub_001203D0_gen(void);
+void sub_001203D0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001203D0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001203D0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001203D0u, g_eax);
+}
+extern void sub_00120400_gen(void);
+void sub_00120400(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120400u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120400_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120400u, g_eax);
+}
+extern void sub_00120430_gen(void);
+void sub_00120430(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120430u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120430_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120430u, g_eax);
+}
+extern void sub_00120460_gen(void);
+void sub_00120460(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120460u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120460_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120460u, g_eax);
+}
+extern void sub_00120510_gen(void);
+void sub_00120510(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120510u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120510_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120510u, g_eax);
+}
+extern void sub_00120860_gen(void);
+void sub_00120860(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120860u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120860_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120860u, g_eax);
+}
+extern void sub_001208C0_gen(void);
+void sub_001208C0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001208C0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001208C0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001208C0u, g_eax);
+}
+extern void sub_00120AF0_gen(void);
+void sub_00120AF0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120AF0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120AF0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120AF0u, g_eax);
+}
+extern void sub_00120C00_gen(void);
+void sub_00120C00(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120C00u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120C00_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120C00u, g_eax);
+}
+extern void sub_00120C60_gen(void);
+void sub_00120C60(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120C60u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120C60_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120C60u, g_eax);
+}
+extern void sub_00120D20_gen(void);
+void sub_00120D20(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120D20u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120D20_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120D20u, g_eax);
+}
+extern void sub_00120F80_gen(void);
+void sub_00120F80(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120F80u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120F80_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120F80u, g_eax);
+}
+extern void sub_00120FF0_gen(void);
+void sub_00120FF0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00120FF0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00120FF0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00120FF0u, g_eax);
+}
+extern void sub_00121010_gen(void);
+void sub_00121010(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121010u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121010_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121010u, g_eax);
+}
+extern void sub_001219A0_gen(void);
+void sub_001219A0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001219A0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001219A0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001219A0u, g_eax);
+}
+extern void sub_00121AA0_gen(void);
+void sub_00121AA0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121AA0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121AA0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121AA0u, g_eax);
+}
+extern void sub_00121C20_gen(void);
+void sub_00121C20(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121C20u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121C20_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121C20u, g_eax);
+}
+extern void sub_00121C50_gen(void);
+void sub_00121C50(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121C50u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121C50_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121C50u, g_eax);
+}
+extern void sub_00121C60_gen(void);
+void sub_00121C60(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121C60u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121C60_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121C60u, g_eax);
+}
+extern void sub_00121C70_gen(void);
+void sub_00121C70(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121C70u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121C70_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121C70u, g_eax);
+}
+extern void sub_00121CA0_gen(void);
+void sub_00121CA0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121CA0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121CA0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121CA0u, g_eax);
+}
+extern void sub_00121DC0_gen(void);
+void sub_00121DC0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121DC0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121DC0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121DC0u, g_eax);
+}
+extern void sub_00121E90_gen(void);
+void sub_00121E90(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121E90u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121E90_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121E90u, g_eax);
+}
+extern void sub_00121EC0_gen(void);
+void sub_00121EC0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121EC0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121EC0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121EC0u, g_eax);
+}
+extern void sub_00121F60_gen(void);
+void sub_00121F60(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121F60u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121F60_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121F60u, g_eax);
+}
+extern void sub_00121FD0_gen(void);
+void sub_00121FD0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00121FD0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00121FD0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00121FD0u, g_eax);
+}
+extern void sub_00122120_gen(void);
+void sub_00122120(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00122120u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00122120_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00122120u, g_eax);
+}
+extern void sub_00122160_gen(void);
+void sub_00122160(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00122160u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00122160_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00122160u, g_eax);
+}
+extern void sub_00122230_gen(void);
+void sub_00122230(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00122230u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00122230_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00122230u, g_eax);
+}
+extern void sub_001222E0_gen(void);
+void sub_001222E0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001222E0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001222E0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001222E0u, g_eax);
+}
+extern void sub_00122320_gen(void);
+void sub_00122320(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00122320u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00122320_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00122320u, g_eax);
+}
+extern void sub_001223B0_gen(void);
+void sub_001223B0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001223B0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001223B0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001223B0u, g_eax);
+}
+extern void sub_001223F0_gen(void);
+void sub_001223F0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001223F0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001223F0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001223F0u, g_eax);
+}
+extern void sub_001225B0_gen(void);
+void sub_001225B0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001225B0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001225B0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001225B0u, g_eax);
+}
+extern void sub_001229D0_gen(void);
+void sub_001229D0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001229D0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001229D0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001229D0u, g_eax);
+}
+extern void sub_00122AB0_gen(void);
+void sub_00122AB0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00122AB0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00122AB0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00122AB0u, g_eax);
+}
+extern void sub_00122BD0_gen(void);
+void sub_00122BD0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00122BD0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00122BD0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00122BD0u, g_eax);
+}
+extern void sub_00122C70_gen(void);
+void sub_00122C70(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00122C70u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00122C70_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00122C70u, g_eax);
+}
+extern void sub_00122CD0_gen(void);
+void sub_00122CD0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00122CD0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00122CD0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00122CD0u, g_eax);
+}
+extern void sub_00130FB0_gen(void);
+void sub_00130FB0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00130FB0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00130FB0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00130FB0u, g_eax);
+}
+extern void sub_001361C0_gen(void);
+void sub_001361C0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001361C0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001361C0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001361C0u, g_eax);
+}
+extern void sub_00136250_gen(void);
+void sub_00136250(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00136250u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00136250_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00136250u, g_eax);
+}
+extern void sub_00136320_gen(void);
+void sub_00136320(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00136320u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00136320_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00136320u, g_eax);
+}
+extern void sub_00136440_gen(void);
+void sub_00136440(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00136440u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00136440_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00136440u, g_eax);
+}
+extern void sub_00136580_gen(void);
+void sub_00136580(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00136580u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00136580_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00136580u, g_eax);
+}
+extern void sub_001365B0_gen(void);
+void sub_001365B0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001365B0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001365B0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001365B0u, g_eax);
+}
+extern void sub_001367D0_gen(void);
+void sub_001367D0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001367D0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001367D0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001367D0u, g_eax);
+}
+extern void sub_00137390_gen(void);
+void sub_00137390(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00137390u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00137390_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00137390u, g_eax);
+}
+extern void sub_001399A0_gen(void);
+void sub_001399A0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001399A0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001399A0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001399A0u, g_eax);
+}
+extern void sub_001399D0_gen(void);
+void sub_001399D0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001399D0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001399D0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001399D0u, g_eax);
+}
+extern void sub_00139A00_gen(void);
+void sub_00139A00(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00139A00u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00139A00_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00139A00u, g_eax);
+}
+extern void sub_00139A50_gen(void);
+void sub_00139A50(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00139A50u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00139A50_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00139A50u, g_eax);
+}
+extern void sub_00139B70_gen(void);
+void sub_00139B70(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00139B70u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00139B70_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00139B70u, g_eax);
+}
+extern void sub_0013A480_gen(void);
+void sub_0013A480(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013A480u); g_esp += 8; return; }
+    rollback_sound_begin();
+    sub_0013A480_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013A480u, g_eax);
+}
+extern void sub_0013B240_gen(void);
+void sub_0013B240(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B240u); g_esp += 8; return; }
+    rollback_sound_begin();
+    sub_0013B240_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B240u, g_eax);
+}
+extern void sub_0013B2C0_gen(void);
+void sub_0013B2C0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B2C0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013B2C0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B2C0u, g_eax);
+}
+extern void sub_0013B2D0_gen(void);
+void sub_0013B2D0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B2D0u); g_esp += 8; return; }
+    rollback_sound_begin();
+    sub_0013B2D0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B2D0u, g_eax);
+}
+extern void sub_0013B310_gen(void);
+void sub_0013B310(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B310u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013B310_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B310u, g_eax);
+}
+extern void sub_0013B340_gen(void);
+void sub_0013B340(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B340u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013B340_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B340u, g_eax);
+}
+extern void sub_0013B590_gen(void);
+void sub_0013B590(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B590u); g_esp += 36; return; }
+    rollback_sound_begin();
+    sub_0013B590_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B590u, g_eax);
+}
+extern void sub_0013B650_gen(void);
+void sub_0013B650(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B650u); g_esp += 32; return; }
+    rollback_sound_begin();
+    sub_0013B650_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B650u, g_eax);
+}
+extern void sub_0013B6B0_gen(void);
+void sub_0013B6B0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B6B0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013B6B0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B6B0u, g_eax);
+}
+extern void sub_0013B7A0_gen(void);
+void sub_0013B7A0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013B7A0u); g_esp += 12; return; }
+    rollback_sound_begin();
+    sub_0013B7A0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013B7A0u, g_eax);
+}
+extern void sub_0013BA80_gen(void);
+void sub_0013BA80(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013BA80u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013BA80_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013BA80u, g_eax);
+}
+extern void sub_0013BEB0_gen(void);
+void sub_0013BEB0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013BEB0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013BEB0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013BEB0u, g_eax);
+}
+extern void sub_0013BF50_gen(void);
+void sub_0013BF50(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x0013BF50u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_0013BF50_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x0013BF50u, g_eax);
+}
+
+/* The yield in the stream library's wait for a stream to close (sub_001E87B0). With rollback on,
+ * a wait that doesn't end must not freeze the match: past about a second the stream is marked
+ * closed. Logged, so it can be told apart from a clean close. */
+void sub_001ED1A0_enter(void)
+{
+    static uint32_t strm, spins;
+    uint32_t k;
+    if (MEM32(g_esp) != 0x001E87F3u || !netplay_rollback_active()) return;
+    if (g_esi != strm) { strm = g_esi; spins = 0; }
+    if (++spins != 3000u) return;
+    fprintf(stderr, "[ROLLBACK] stream %08x has not closed:", strm);
+    for (k = 0; k < 32; k++) fprintf(stderr, " %08x", MEM32(strm + k * 4));
+    fprintf(stderr, "\n[ROLLBACK]   requests:");
+    for (k = MEM32(strm + 0x74); k && spins < 3020u; k = MEM32(k), spins++)
+        fprintf(stderr, " [%08x: %08x %08x %08x %08x %08x]", k, MEM32(k), MEM32(k + 4), MEM32(k + 8), MEM32(k + 12), MEM32(k + 16));
+    fprintf(stderr, "\n");
+    fflush(stderr);
+    MEM32(strm + 0x48) = 0;
+}
+
+/* The stream client layer, the same way. Generated too. */
+extern void sub_00131080_gen(void);
+void sub_00131080(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00131080u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00131080_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00131080u, g_eax);
+}
+extern void sub_00131310_gen(void);
+void sub_00131310(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00131310u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00131310_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00131310u, g_eax);
+}
+extern void sub_00131620_gen(void);
+void sub_00131620(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00131620u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00131620_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00131620u, g_eax);
+}
+extern void sub_00131760_gen(void);
+void sub_00131760(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00131760u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00131760_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00131760u, g_eax);
+}
+extern void sub_00131780_gen(void);
+void sub_00131780(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00131780u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00131780_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00131780u, g_eax);
+}
+extern void sub_001317C0_gen(void);
+void sub_001317C0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001317C0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001317C0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001317C0u, g_eax);
+}
+extern void sub_00131C00_gen(void);
+void sub_00131C00(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00131C00u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00131C00_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00131C00u, g_eax);
+}
+extern void sub_00132260_gen(void);
+void sub_00132260(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00132260u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00132260_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00132260u, g_eax);
+}
+extern void sub_00132440_gen(void);
+void sub_00132440(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00132440u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00132440_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00132440u, g_eax);
+}
+extern void sub_00132670_gen(void);
+void sub_00132670(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00132670u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00132670_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00132670u, g_eax);
+}
+extern void sub_00132770_gen(void);
+void sub_00132770(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00132770u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00132770_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00132770u, g_eax);
+}
+extern void sub_001329A0_gen(void);
+void sub_001329A0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x001329A0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_001329A0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x001329A0u, g_eax);
+}
+extern void sub_00133240_gen(void);
+void sub_00133240(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00133240u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00133240_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00133240u, g_eax);
+}
+extern void sub_00133570_gen(void);
+void sub_00133570(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00133570u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00133570_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00133570u, g_eax);
+}
+extern void sub_00133580_gen(void);
+void sub_00133580(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00133580u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00133580_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00133580u, g_eax);
+}
+extern void sub_00135AD0_gen(void);
+void sub_00135AD0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00135AD0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00135AD0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00135AD0u, g_eax);
+}
+extern void sub_00135AE0_gen(void);
+void sub_00135AE0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00135AE0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00135AE0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00135AE0u, g_eax);
+}
+extern void sub_00135DB0_gen(void);
+void sub_00135DB0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00135DB0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00135DB0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00135DB0u, g_eax);
+}
+extern void sub_00135FF0_gen(void);
+void sub_00135FF0(void)
+{
+    if (netplay_resimulating() && ON_FIGHT_THREAD()) { g_eax = rollback_sound_replayed(0x00135FF0u); g_esp += 4; return; }
+    rollback_sound_begin();
+    sub_00135FF0_gen();
+    if (ON_FIGHT_THREAD()) rollback_sound_record(0x00135FF0u, g_eax);
+}
+
+/* The sound tick, run by the job pump on the fight's thread: library code. */
+extern void sub_00127550_gen(void);
+void sub_00127550(void)
+{
+    rollback_lib_enter();
+    sub_00127550_gen();
+    rollback_lib_leave();
+}
+
+static void rollback_run_deferred_frees(void)
+{
+    uint32_t addr;
+    while ((addr = rollback_deferred_pop()) != 0) {
+        uint32_t ecx_was = g_ecx;
+        if (addr & 1u) {
+            g_esp -= 4; MEM32(g_esp) = 0;
+            g_esp -= 4; MEM32(g_esp) = addr & ~1u;
+            g_esp -= 4; MEM32(g_esp) = 0;
+            sub_001E9F90_gen();
+            g_esp += 8;
+            continue;
+        }
+        g_ecx = MEM32(0x0033DB54u);
+        g_esp -= 4; MEM32(g_esp) = addr;
+        g_esp -= 4; MEM32(g_esp) = 0;   /* the return address nobody reads */
+        sub_0002A180_gen();
+        g_ecx = ecx_was;
+    }
+}
+
+extern void sub_00087700_gen(void);
+void sub_00087700(void)
+{
+    rollback_run_deferred_frees();
     defjam_crowd_step();
     netplay_step();         /* after the crowd's first-step work: both games then start together */
     defjam_test_step();
@@ -104,6 +1200,8 @@ void sub_00087700_enter(void)
     }
     s_ws_hud_live = 1;
     ws_hud_heartbeat();
+    sub_00087700_gen();
+    netplay_step_done();
 }
 /* The match's update (thiscall; the match at 0x349760, its state at +0x2D820).
  * Only states 5 and 8 run the simulation step above; any other state (intro,
@@ -264,6 +1362,38 @@ void sub_0002DFF0_enter(void) { scene_launcher_mode_enter(); }
 /* The developer run module, rebuilt from the host (src/hooks/dev_module.c): the manager's tick
  * queues it on request; its methods are traced. RECOMP_DEV_MODULE; off unless set. */
 void sub_00077040_enter(void) { dev_module_manager_enter(); }
+/* A game tick; rollback's re-runs happen here, ticks without their drawing (sub_0001A240 is the
+ * main loop's, after this returns). */
+extern void sub_00077040_gen(void);
+extern int netplay_rollback_frame(void);
+extern void netplay_rollback_frame_done(double ms, int ticks);
+extern double netplay_rollback_now_ms(void);
+extern int netplay_rollback_rerun_more(void);
+extern int rollback_crt_list_check(const char *when, long step);
+extern long netplay_rollback_step(void);
+void sub_00077040(void)
+{
+    uint32_t self = g_ecx;
+    int ticks = netplay_rollback_frame();
+    rollback_run_releases();
+    if (ticks > 0) {
+        uint32_t dt = MEM32(g_esp + 4);
+        double t = netplay_rollback_now_ms();
+        int ran = 0;
+        while (netplay_rollback_rerun_more() && ran < ticks * 4) {
+            g_esp -= 4; MEM32(g_esp) = dt;
+            g_esp -= 4; MEM32(g_esp) = 0x00011D7Bu;
+            g_ecx = self;
+            sub_00077040_gen();
+            ran++;
+            rollback_crt_list_check("after a re-run tick", netplay_rollback_step());
+        }
+        netplay_rollback_frame_done(netplay_rollback_now_ms() - t, ran);
+    }
+    g_ecx = self;
+    sub_00077040_gen();
+    rollback_crt_list_check("after a normal tick", netplay_rollback_step());
+}
 void sub_00077C40_enter(void) { dev_module_trace(1); }
 void sub_00077A40_enter(void) { dev_module_trace(3); }
 void sub_00077B20_enter(void) { dev_module_trace(4); }

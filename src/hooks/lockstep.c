@@ -25,6 +25,7 @@
 #include "recomp/gen/recomp_types.h"
 #include "guest_call.h"
 #include "lockstep.h"
+#include "rollback.h"
 #include "test_observations.h"
 
 #define DEFAULT_SEED       20261006u
@@ -193,4 +194,12 @@ void defjam_lockstep_tick(void)
         said = 1;
         fprintf(stderr, "[LOCKSTEP] one fight step per presented frame\n");
     }
+}
+
+/* Rollback (rollback.h): the fight step's private utility generator. */
+void defjam_lockstep_rollback_blocks(rollback_block_fn add)
+{
+    add(s_util_private, sizeof s_util_private);
+    add(s_util_saved, sizeof s_util_saved);
+    add(&s_util_seeded, sizeof s_util_seeded);
 }
