@@ -82,6 +82,12 @@ const LauncherImage *image_of(Entry &e)
 }
 } // namespace
 
+const LauncherImage *launcher_image_cached(const char *name)
+{
+    Entry &e = entry(name);
+    return e.loaded ? image_of(e) : nullptr;
+}
+
 const LauncherImage *launcher_image_rgba(const char *name, const unsigned char *rgba, int width, int height)
 {
     Entry &e = entry(name);

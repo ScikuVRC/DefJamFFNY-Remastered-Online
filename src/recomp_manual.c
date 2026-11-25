@@ -98,6 +98,10 @@ void sub_00087700_enter(void)
     defjam_crowd_step();
     netplay_step();         /* after the crowd's first-step work: both games then start together */
     defjam_test_step();
+    {
+        extern void pc_venue_art_step(int fighting);
+        pc_venue_art_step(MEM32(0x003B8F30u) == 1u);   /* the match phase: 1 while fighting */
+    }
     s_ws_hud_live = 1;
     ws_hud_heartbeat();
 }

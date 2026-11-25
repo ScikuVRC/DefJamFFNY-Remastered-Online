@@ -152,11 +152,17 @@ static void start_game_wrapper(void)
         MEM8(gd + 0x1AAAu + i * 5) = (uint8_t)id;
         f = (*end == ',') ? end + 1 : end;
     }
-    fprintf(stderr, "[START] venue(script)=%d fighters(gd+1aaa step 5):", (int)MEM32(game + 0xCA4));
-    for (i = 0; i < 4; i++)
-        fprintf(stderr, " %d", (int)(int8_t)MEM8(gd + 0x1AAAu + i * 5));
-    fprintf(stderr, "\n");
-    fflush(stderr);
+    {
+        extern void pc_venue_art_match(int venue);
+        pc_venue_art_match((int)MEM32(game + 0xCA4));    /* a picture of it for the launcher (pc_venue_art.c) */
+    }
+    if (s_start_log) {
+        fprintf(stderr, "[START] venue(script)=%d fighters(gd+1aaa step 5):", (int)MEM32(game + 0xCA4));
+        for (i = 0; i < 4; i++)
+            fprintf(stderr, " %d", (int)(int8_t)MEM8(gd + 0x1AAAu + i * 5));
+        fprintf(stderr, "\n");
+        fflush(stderr);
+    }
     if (real)
         real();
 }
@@ -168,5 +174,5 @@ recomp_func_t defjam_start_game_hook(void)
                    *c = getenv("RECOMP_START_FIGHTERS");
         s_start_log = (a && *a && strcmp(a, "0")) || (b && *b) || (c && *c);
     }
-    return s_start_log ? start_game_wrapper : (recomp_func_t)0;
+    return start_game_wrapper;      /* always: it also tells pc_venue_art.c the venue */
 }

@@ -13,6 +13,9 @@ struct LauncherImage
 // ImGui context and uploaded by the active renderer backend as a user texture.
 const LauncherImage *launcher_image(const char *name);
 
+// The image already made under `name` (by launcher_image_rgba), else nullptr.
+const LauncherImage *launcher_image_cached(const char *name);
+
 // An image made in memory (8-bit RGBA), kept under `name` the same way: the first call's pixels
 // are the image's for the rest of the context.
 const LauncherImage *launcher_image_rgba(const char *name, const unsigned char *rgba, int width, int height);

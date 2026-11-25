@@ -46,6 +46,7 @@
 #include "recorder.h"
 #include "d3d8_readback.h"
 #include "save_activity.h"
+#include "pc_venue_art.h"
 
 /* The title sets a 640x480 mode. Matching it keeps the translator's screen
  * space and ours the same, so a vertex the title placed at 320,240 lands in
@@ -54,6 +55,7 @@
 #define TRANSLATOR_HEIGHT  480
 
 static void capture_backbuffer(IDirect3DDevice8 *dev);
+static void venue_picture(IDirect3DDevice8 *dev);
 
 static int   s_ready;
 
@@ -661,6 +663,7 @@ void d3d11_translator_frame_end(void)
         double capture_ms = 0.0, present_at = 0.0;
         int recording = recorder_on();
         capture_backbuffer(dev);
+        venue_picture(dev);
         if (recording) {
             recorder_frame_begin();
             capture_ms = recorder_capture(dev);
@@ -900,6 +903,63 @@ static void capture_backbuffer(IDirect3DDevice8 *dev)
     }
     surf->lpVtbl->UnlockRect(surf);
     fflush(stderr);
+}
+
+/* A venue picture for the launcher, when one is wanted (pc_venue_art.c): this frame at the
+ * title's height, in the canvas's shape, with the gamma the window shows. */
+static void venue_picture(IDirect3DDevice8 *dev)
+{
+    extern unsigned d3d8_GetRenderScale(void);
+    extern float d3d8_GetCanvasScaleX(void);
+    extern uint8_t g_recomp_gamma[3][256];
+    extern int g_recomp_gamma_on;
+    IDirect3DSurface8 *surf = NULL;
+    D3DLOCKED_RECT lr;
+    uint32_t sc, sw, sh, w, h, x, y;
+    uint8_t *rgb;
+    if (!pc_venue_art_wanted())
+        return;
+    sc = d3d8_GetRenderScale();
+    if (!sc)
+        sc = 1;
+    sw = (uint32_t)(TRANSLATOR_WIDTH * d3d8_GetCanvasScaleX() + 0.5f);
+    sh = TRANSLATOR_HEIGHT * sc;
+    w = (sw + sc / 2) / sc;
+    h = TRANSLATOR_HEIGHT;
+    if (FAILED(dev->lpVtbl->GetBackBuffer(dev, 0, 0, &surf)) || !surf)
+        return;
+    memset(&lr, 0, sizeof(lr));
+    if (FAILED(surf->lpVtbl->LockRect(surf, &lr, NULL, 0)) || !lr.pBits)
+        return;
+    rgb = (uint8_t *)malloc((size_t)w * h * 3);
+    if (rgb) {
+        for (y = 0; y < h; y++) {
+            uint32_t sy0 = (uint32_t)(((uint64_t)y * sh) / h), sy1 = (uint32_t)(((uint64_t)(y + 1) * sh) / h);
+            if (sy1 <= sy0) sy1 = sy0 + 1;
+            for (x = 0; x < w; x++) {
+                uint32_t sum[3] = { 0, 0, 0 }, i, j, c;
+                uint32_t sx0 = (uint32_t)(((uint64_t)x * sw) / w), sx1 = (uint32_t)(((uint64_t)(x + 1) * sw) / w);
+                if (sx1 <= sx0) sx1 = sx0 + 1;
+                for (j = sy0; j < sy1; j++) {
+                    const uint8_t *src = (const uint8_t *)lr.pBits + (size_t)j * lr.Pitch;
+                    for (i = sx0; i < sx1; i++)
+                        for (c = 0; c < 3; c++)
+                            sum[c] += src[i * 4 + c];       /* R, G, B, A (see capture_backbuffer) */
+                }
+                for (c = 0; c < 3; c++) {
+                    sum[c] /= (sx1 - sx0) * (sy1 - sy0);
+                    if (g_recomp_gamma_on)
+                        sum[c] = g_recomp_gamma[c][sum[c] & 0xFF];
+                    rgb[((size_t)y * w + x) * 3 + c] = (uint8_t)sum[c];
+                }
+            }
+        }
+    }
+    surf->lpVtbl->UnlockRect(surf);
+    if (rgb) {
+        pc_venue_art_save(rgb, (int)w, (int)h);
+        free(rgb);
+    }
 }
 
 /* Kept for its callers: the window's own thread pumps it now (window_thread
