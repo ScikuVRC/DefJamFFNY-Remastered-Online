@@ -35,6 +35,7 @@
 #include "pc_mods.h"
 #include "pc_update.h"
 #include "pc_ui_theme.h"
+#include "pc_launcher_select.h"
 #include "pc_ui_actions.h"
 #include "pc_launcher_home.h"
 #include "pc_launcher_online.h"
@@ -1627,6 +1628,13 @@ static void ui_online_match(UiResult &result, float width, float scale)
         ImGui::Spacing();
         ui_online_record(result, name, width, display.y, scale);
     }
+    else if (in_lobby && (lobby.phase == NETPLAY_PHASE_PICKING || lobby.phase == NETPLAY_PHASE_VOTING))
+    {
+        // Live fighter select and the venue vote (pc_launcher_select.cpp).
+        ImGui::PushTextWrapPos(0.0f);
+        ui_online_select(lobby, display.x * 0.9f, display.y * 0.8f, scale);
+        ImGui::PopTextWrapPos();
+    }
     else if (in_lobby)
     {
         const NetplayMatchType *type = netplay_match_type(lobby.match.type);
@@ -1831,10 +1839,7 @@ static void ui_online_match(UiResult &result, float width, float scale)
         }
         if (type && type->venue < 0)
         {
-            int venue = lobby.match.venue;
-            ImGui::SetNextItemWidth(field);
-            if (choice_combo("Venue", &venue, venues, venue_count))
-                netplay_set_match(lobby.match.type, -1, venue);
+            ImGui::TextDisabled("Venue: the players vote on it after fighter select.");
         }
         else
         {
@@ -1856,7 +1861,7 @@ static void ui_online_match(UiResult &result, float width, float scale)
             if (!picking)
             {
                 ImGui::BeginDisabled(lobby.players < 2 || !everyone || lobby.players > fit);
-                if (ImGui::Button("Pick fighters"))
+                if (ImGui::Button("Fighter select"))
                     netplay_set_phase(NETPLAY_PHASE_PICKING);
                 ui_target("OnlinePick");
                 ImGui::EndDisabled();

@@ -13,7 +13,13 @@
  *   2. in the lobby the host sends LOBBY (the players, their ready flags, the phase
  *      and the match so far) whenever it changes; a joiner sends READYUP <0|1> and,
  *      once the host has moved the lobby to picking, PICK <fighter> [<profile>] for
- *      its own slot (a profile with fighter 99: that profile's created fighter);
+ *      its own slot (a profile with fighter 99: that profile's created fighter).
+ *      Fighter select is live: a joiner sends CURSOR <fighter> as its cursor moves, and
+ *      the host sends SELECT <cursor0..3> <choice0..3> <ballot0..3> <result> <ms left>
+ *      whenever it changes. Locking in is PICK and READYUP 1; when everyone has (or the
+ *      host's clock runs out) the host moves the lobby to voting, where every venue is
+ *      open: a joiner sends BALLOT <venue> (or -2, Random), and once everyone has voted
+ *      (or the clock runs out) the host settles the venue and starts;
  *   3. the host starts: IDS <id0> ... <id3>, then MATCH <seed> <type> <rules> <venue> <slots> <fighters>
  *      <teams> <owners> <profiles>. A joiner with a created fighter sends its profile's
  *      save (FILE <player> <folder> <name> <size>, DATA <hex>..., END), and every joiner then
@@ -90,7 +96,7 @@ typedef int sock_t;
 #ifndef DEFJAM_VERSION
 #define DEFJAM_VERSION "dev"
 #endif
-#define PROTOCOL        3
+#define PROTOCOL        4
 #define MAXP            NETPLAY_MAX_PLAYERS
 #define BARRIER_MS      120000      /* how long a game waits for the others at the first step */
 #define AGREE_MS        15000       /* how long the host waits for every READY */
@@ -141,6 +147,13 @@ static uint16_t s_port;
 static char s_address[128];
 static char s_name[NETPLAY_NAME_LEN] = "Player";
 static int s_lobby_dirty, s_pick_dirty, s_start_request, s_ready_dirty, s_ready_value;
+/* Fighter select and the vote: the host's, or a joiner's copy. s_deadline is on this
+ * game's own clock (now_ms), 0 when the phase has none. */
+static NetplaySelect s_sel;
+static unsigned long long s_deadline, s_all_locked_at, s_result_at;
+static int s_sel_dirty, s_cursor_dirty, s_cursor_value, s_ballot_dirty, s_ballot_value;
+static int s_my_cursor, s_my_ballot;    /* a joiner: what this player chose this phase, 0 / -1 nothing yet */
+static unsigned long long now_ms(void);
 static char s_pick_profile[NETPLAY_PROFILE_LEN];
 static int s_wait_players = 2;      /* scripted host: start when this many are in */
 static char s_fp_program[24], s_fp_data[24];
@@ -388,9 +401,25 @@ static void no_delay(sock_t sock)
 }
 
 /* ---- The lobby ---------------------------------------------------------------------- */
+static void default_select(void)
+{
+    int i;
+    for (i = 0; i < MAXP; i++) {
+        s_sel.cursor[i] = 0;
+        s_sel.ballot[i] = -1;
+    }
+    for (i = 0; i < NETPLAY_VENUE_CHOICES; i++) s_sel.choices[i] = -1;
+    s_sel.result = -1;
+    s_sel.seconds_left = -1;
+    s_deadline = s_all_locked_at = s_result_at = 0;
+    s_my_cursor = 0;
+    s_my_ballot = -1;
+}
+
 static void default_lobby(void)
 {
     int i;
+    default_select();
     memset(&s_lobby, 0, sizeof s_lobby);
     s_lobby.local_player = -1;
     s_lobby.match.venue = DEFAULT_VENUE;
@@ -621,7 +650,7 @@ int netplay_start(void)
         int p, waiting = 0;
         lock();
         for (p = 0; p < MAXP; p++) waiting += s_lobby.name[p][0] && !s_lobby.ready[p];
-        if (s_lobby.phase != NETPLAY_PHASE_PICKING) waiting = -1;
+        if (s_lobby.phase == NETPLAY_PHASE_WAITING) waiting = -1;
         unlock();
         if (waiting < 0) { set_state(NETPLAY_LISTENING, "Pick the fighters first"); ok = 0; }
         else if (waiting) { set_state(NETPLAY_LISTENING, "%d player(s) have not locked in a fighter", waiting); ok = 0; }
@@ -651,8 +680,211 @@ void netplay_set_phase(int phase)
     if (s_inited) lock();
     s_lobby.phase = phase;
     for (p = 0; p < MAXP; p++) s_lobby.ready[p] = 0;
+    default_select();
+    if (phase == NETPLAY_PHASE_PICKING) {
+        /* Each cursor starts on its player's fighter; the clock starts. */
+        NetplayMatch m = s_lobby.match;
+        settle_match(&m, &s_lobby);
+        for (p = 0; p < MAXP; p++) {
+            int slot = slot_of(&m, p);
+            s_sel.cursor[p] = s_lobby.name[p][0] && slot >= 0 ? m.fighter[slot] : 0;
+        }
+        s_deadline = now_ms() + NETPLAY_PICK_SECONDS * 1000ull;
+    }
+    s_sel_dirty = 1;
     s_lobby_dirty = 1;
     if (s_inited) unlock();
+}
+
+/* ---- Live fighter select and the venue vote ------------------------------------- */
+static void select_line(char *out, size_t size)
+{
+    long left = -1;
+    if (s_deadline) {
+        unsigned long long now = now_ms();
+        left = s_deadline > now ? (long)(s_deadline - now) : 0;
+    }
+    snprintf(out, size, "SELECT %d %d %d %d %d %d %d %d %d %d %d %d %d %ld", s_sel.cursor[0], s_sel.cursor[1],
+             s_sel.cursor[2], s_sel.cursor[3], s_sel.choices[0], s_sel.choices[1], s_sel.choices[2],
+             s_sel.choices[3], s_sel.ballot[0], s_sel.ballot[1], s_sel.ballot[2], s_sel.ballot[3], s_sel.result,
+             left);
+}
+
+/* A joiner, under the lock. The time left becomes a deadline on this game's own clock. */
+static void read_select_line(const char *line)
+{
+    NetplaySelect s;
+    long left;
+    if (sscanf(line, "SELECT %d %d %d %d %d %d %d %d %d %d %d %d %d %ld", &s.cursor[0], &s.cursor[1], &s.cursor[2],
+               &s.cursor[3], &s.choices[0], &s.choices[1], &s.choices[2], &s.choices[3], &s.ballot[0],
+               &s.ballot[1], &s.ballot[2], &s.ballot[3], &s.result, &left) != 14)
+        return;
+    /* Once this player has moved or voted, their own cursor and vote are what they chose
+     * (the host's copy may not have caught up yet); before that, the host's. */
+    if (s_lobby.local_player >= 0) {
+        if (s_my_cursor > 0) s.cursor[s_lobby.local_player] = s_my_cursor;
+        if (s.result < 0 && s_my_ballot != -1) s.ballot[s_lobby.local_player] = s_my_ballot;
+    }
+    s.seconds_left = -1;
+    s_sel = s;
+    s_deadline = left >= 0 ? now_ms() + (unsigned long long)left : 0;
+}
+
+/* The host, under the lock: a player's cursor moves (while they are still choosing). */
+static void host_cursor(int p, int fighter)
+{
+    if (p < 0 || p >= MAXP || fighter < 0 || s_lobby.phase != NETPLAY_PHASE_PICKING || s_lobby.ready[p]) return;
+    if (s_sel.cursor[p] != fighter) {
+        s_sel.cursor[p] = fighter;
+        s_sel_dirty = 1;
+    }
+}
+
+/* The host, under the lock: a player's vote, for any venue or for Random. */
+static void host_ballot(int p, int venue)
+{
+    const NetplayChoice *venues;
+    int count = netplay_venues(&venues), i, valid = venue == NETPLAY_RANDOM_VENUE;
+    if (p < 0 || p >= MAXP || s_lobby.phase != NETPLAY_PHASE_VOTING || s_sel.result >= 0) return;
+    for (i = 0; i < count; i++) valid |= venues[i].id == venue;
+    if (!valid) return;
+    s_sel.ballot[p] = venue;
+    s_sel_dirty = 1;
+}
+
+/* The host, under the lock: every venue is open to the vote (choices stay unused). */
+static void draw_choices(void)
+{
+    int i;
+    for (i = 0; i < NETPLAY_VENUE_CHOICES; i++) s_sel.choices[i] = -1;
+}
+
+/* The host, under the lock: count the votes. The most votes win; a vote for Random goes
+ * to any venue, a tie is drawn at random, and with no votes at all any venue it is. */
+static int settle_vote(void)
+{
+    const NetplayChoice *venues;
+    int count = netplay_venues(&venues), votes[160] = {0}, p, i, best = 0, ties = 0, pick;
+    if (count <= 0) return s_lobby.match.venue;
+    if (count > 160) count = 160;
+    for (p = 0; p < MAXP; p++) {
+        int b = s_sel.ballot[p];
+        if (!s_lobby.name[p][0] || b == -1) continue;
+        if (b == NETPLAY_RANDOM_VENUE) { votes[(unsigned)rand() % (unsigned)count]++; continue; }
+        for (i = 0; i < count; i++)
+            if (venues[i].id == b) votes[i]++;
+    }
+    for (i = 0; i < count; i++) best = votes[i] > best ? votes[i] : best;
+    for (i = 0; i < count; i++) ties += votes[i] == best;
+    pick = (int)((unsigned)rand() % (unsigned)ties);
+    for (i = 0; i < count; i++)
+        if (votes[i] == best && pick-- == 0) return venues[i].id;
+    return venues[0].id;
+}
+
+/* The host, under the lock, every turn of the lobby: the clocks and the phases. */
+static void host_select_tick(void)
+{
+    unsigned long long now = now_ms();
+    int p, everyone = 1, here = 0;
+    for (p = 0; p < MAXP; p++)
+        if (s_lobby.name[p][0]) {
+            here++;
+            everyone &= s_lobby.ready[p] != 0;
+        }
+    if (s_lobby.phase == NETPLAY_PHASE_PICKING) {
+        if (s_deadline && now >= s_deadline && !everyone) {
+            /* Time: everyone still choosing gets the fighter under their cursor, or keeps
+             * the one their slot has when someone else has it. */
+            NetplayMatch m = s_lobby.match;
+            settle_match(&m, &s_lobby);
+            for (p = 0; p < MAXP; p++) {
+                int slot = slot_of(&m, p);
+                if (!s_lobby.name[p][0] || s_lobby.ready[p]) continue;
+                if (slot >= 0 && s_sel.cursor[p] > 0 && s_sel.cursor[p] != NETPLAY_CREATED_FIGHTER)
+                    set_fighter(&s_lobby.match, slot, s_sel.cursor[p], NULL);
+                s_lobby.ready[p] = 1;
+            }
+            everyone = 1;
+            s_lobby_dirty = 1;
+        }
+        if (!everyone || here < 2) { s_all_locked_at = 0; return; }
+        if (!s_all_locked_at) { s_all_locked_at = now; return; }
+        if (now - s_all_locked_at < 1200) return;
+        {
+            const NetplayMatchType *t = netplay_match_type(s_lobby.match.type);
+            s_all_locked_at = 0;
+            if (t && t->venue >= 0) {           /* the match type has its own venue */
+                s_start_request = 1;
+                return;
+            }
+        }
+        s_lobby.phase = NETPLAY_PHASE_VOTING;
+        for (p = 0; p < MAXP; p++) s_sel.ballot[p] = -1;
+        s_sel.result = -1;
+        draw_choices();
+        s_deadline = now + NETPLAY_VOTE_SECONDS * 1000ull;
+        s_lobby_dirty = s_sel_dirty = 1;
+    } else if (s_lobby.phase == NETPLAY_PHASE_VOTING) {
+        if (s_sel.result < 0) {
+            int voted = 1;
+            for (p = 0; p < MAXP; p++) voted &= !s_lobby.name[p][0] || s_sel.ballot[p] != -1;
+            if (!voted && !(s_deadline && now >= s_deadline)) return;
+            s_sel.result = settle_vote();
+            s_result_at = now;
+            s_deadline = 0;
+            s_sel_dirty = 1;
+            return;
+        }
+        if (now - s_result_at < 2500) return;
+        s_lobby.match.venue = s_sel.result;
+        s_lobby_dirty = 1;
+        s_start_request = 1;
+    }
+}
+
+void netplay_set_cursor(int fighter)
+{
+    if (fighter < 0) return;
+    if (s_inited) lock();
+    if (s_hosting) host_cursor(0, fighter);
+    else if (s_lobby.local_player >= 0 && s_sel.cursor[s_lobby.local_player] != fighter) {
+        s_sel.cursor[s_lobby.local_player] = fighter;
+        s_my_cursor = fighter;
+        s_cursor_value = fighter;
+        s_cursor_dirty = 1;
+    }
+    if (s_inited) unlock();
+}
+
+void netplay_vote_venue(int venue)
+{
+    if (s_inited) lock();
+    if (s_hosting) host_ballot(0, venue);
+    else if (s_lobby.local_player >= 0 && s_lobby.phase == NETPLAY_PHASE_VOTING && s_sel.result < 0) {
+        s_sel.ballot[s_lobby.local_player] = venue;
+        s_my_ballot = venue;
+        s_ballot_value = venue;
+        s_ballot_dirty = 1;
+    }
+    if (s_inited) unlock();
+}
+
+int netplay_select(NetplaySelect *out)
+{
+    int in;
+    if (!s_inited) return 0;
+    lock();
+    in = s_lobby.local_player >= 0;
+    *out = s_sel;
+    if (s_deadline) {
+        unsigned long long now = now_ms();
+        out->seconds_left = s_deadline > now ? (int)((s_deadline - now + 999) / 1000) : 0;
+    } else {
+        out->seconds_left = -1;
+    }
+    unlock();
+    return in;
 }
 
 int netplay_local_addresses(char out[][48], int max)
@@ -839,6 +1071,12 @@ static void host_accept(sock_t listener)
     s_lobby.ready[slot] = 0;
     s_lobby.players++;
     settle_match(&s_lobby.match, &s_lobby);
+    {
+        int own = slot_of(&s_lobby.match, slot);
+        s_sel.cursor[slot] = own >= 0 ? s_lobby.match.fighter[own] : 0;
+        s_sel.ballot[slot] = -1;
+    }
+    s_sel_dirty = 1;
     s_lobby_dirty = 1;
     unlock();
     set_state(NETPLAY_LISTENING, "%s joined (%d players)", name, s_lobby.players);
@@ -853,6 +1091,9 @@ static void host_lost(int p)
     s_lobby.name[p][0] = 0;
     s_ids[p][0] = 0;
     s_lobby.ready[p] = 0;
+    s_sel.cursor[p] = 0;
+    s_sel.ballot[p] = -1;
+    s_sel_dirty = 1;
     s_lobby.players--;
     settle_match(&s_lobby.match, &s_lobby);
     s_lobby_dirty = 1;
@@ -893,6 +1134,14 @@ static int host_lobby(void)
                 if (sscanf(line, "PICK %d %64s", &fighter, word) >= 1) {
                     unhex_word(profile, sizeof profile, word);
                     host_pick(p, fighter, profile);
+                } else if (sscanf(line, "CURSOR %d", &fighter) == 1) {
+                    lock();
+                    host_cursor(p, fighter);
+                    unlock();
+                } else if (sscanf(line, "BALLOT %d", &fighter) == 1) {
+                    lock();
+                    host_ballot(p, fighter);
+                    unlock();
                 } else if (sscanf(line, "READYUP %d", &ready) == 1) {
                     lock();
                     s_lobby.ready[p] = ready != 0;
@@ -902,9 +1151,19 @@ static int host_lobby(void)
             }
         }
         lock();
+        host_select_tick();
         if (s_lobby_dirty) {
             lobby_line(line, sizeof line);
             s_lobby_dirty = 0;
+            unlock();
+            send_all(-1, "%s", line);
+        } else {
+            unlock();
+        }
+        lock();
+        if (s_sel_dirty) {
+            select_line(line, sizeof line);
+            s_sel_dirty = 0;
             unlock();
             send_all(-1, "%s", line);
         } else {
@@ -1385,12 +1644,32 @@ static int join_session(void)
         unlock();
         if (picked) send_to(0, "PICK %d %s", picked, word);
         if (ready >= 0) send_to(0, "READYUP %d", ready);
+        {
+            int cursor = -1, ballot = -3;
+            lock();
+            if (s_cursor_dirty) cursor = s_cursor_value;
+            if (s_ballot_dirty) ballot = s_ballot_value;
+            s_cursor_dirty = s_ballot_dirty = 0;
+            unlock();
+            if (cursor >= 0) send_to(0, "CURSOR %d", cursor);
+            if (ballot != -3) send_to(0, "BALLOT %d", ballot);
+        }
         if (got == 0) continue;
-        if (!strncmp(line, "LOBBY ", 6)) {
+        if (!strncmp(line, "SELECT ", 7)) {
+            lock();
+            read_select_line(line);
+            unlock();
+        } else if (!strncmp(line, "LOBBY ", 6)) {
             NetplayLobby l;
             lock();
             l = s_lobby;
-            if (read_lobby_line(line, &l)) s_lobby = l;
+            if (read_lobby_line(line, &l)) {
+                if (l.phase != s_lobby.phase) {
+                    s_my_cursor = 0;
+                    s_my_ballot = -1;
+                }
+                s_lobby = l;
+            }
             unlock();
         } else if (!strncmp(line, "IDS ", 4)) {
             char ids[MAXP][40];
@@ -1629,6 +1908,7 @@ int netplay_host(uint16_t port)
 {
     s_hosting = 1;
     s_port = port ? port : NETPLAY_DEFAULT_PORT;
+    srand(fresh_seed());        /* the venues to vote on, and the vote's ties */
     return start_session();
 }
 

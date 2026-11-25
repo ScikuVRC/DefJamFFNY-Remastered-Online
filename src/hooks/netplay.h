@@ -21,6 +21,14 @@ extern "C" {
  * fighters and lock them in; the host moves the lobby on and starts the match. */
 #define NETPLAY_PHASE_WAITING 0
 #define NETPLAY_PHASE_PICKING 1
+/* Everyone locked in: the players vote on the venue, and the match starts. */
+#define NETPLAY_PHASE_VOTING 2
+
+/* Fighter select and the venue vote, on the host's clock. */
+#define NETPLAY_PICK_SECONDS 30
+#define NETPLAY_VOTE_SECONDS 15
+#define NETPLAY_VENUE_CHOICES 4
+#define NETPLAY_RANDOM_VENUE (-2)       /* a ballot for any of the choices */
 
 typedef enum {
     NETPLAY_IDLE,
@@ -57,6 +65,15 @@ typedef struct {
     char name[NETPLAY_MAX_PLAYERS][NETPLAY_NAME_LEN];
     NetplayMatch match;                             /* the host's settings so far */
 } NetplayLobby;
+
+/* Live fighter select and the venue vote, as every game sees them. */
+typedef struct {
+    int cursor[NETPLAY_MAX_PLAYERS];        /* the fighter each player's cursor is on, 0 none */
+    int choices[NETPLAY_VENUE_CHOICES];     /* unused (-1): every venue is open to the vote */
+    int ballot[NETPLAY_MAX_PLAYERS];        /* each player's vote: a venue, NETPLAY_RANDOM_VENUE, or -1 */
+    int result;                             /* the venue the vote chose, -1 until it has */
+    int seconds_left;                       /* on the phase's clock; -1 when it has none */
+} NetplaySelect;
 
 /* Battle's match types (netplay_catalog.c). */
 typedef struct {
@@ -105,9 +122,18 @@ void netplay_pick(int fighter);
 void netplay_pick_created(const char *profile);
 /* Any player: ready (in the waiting room) or locked in (when picking), or not. */
 void netplay_set_ready(int ready);
-/* Host: the lobby's phase; every player's ready flag is cleared. */
+/* Host: the lobby's phase; every player's ready flag is cleared. Fighter select starts
+ * its clock; once everyone has locked in (or the clock runs out, which locks in the
+ * fighter under each cursor) the host's game moves on to the venue vote by itself, and
+ * from the vote's result to the match. */
 void netplay_set_phase(int phase);
-/* Host: start with the lobby as it is. Returns 0 (and says why in the status) when
+/* Any player: where their cursor is in fighter select (seen by everyone), and their vote
+ * for the venue (any of netplay_venues, or NETPLAY_RANDOM_VENUE). */
+void netplay_set_cursor(int fighter);
+void netplay_vote_venue(int venue);
+/* Fighter select and the vote; 0 outside a lobby. */
+int netplay_select(NetplaySelect *out);
+/* Host: start with the lobby as it is, now. Returns 0 (and says why in the status) when
  * the players do not fit the match type or have not all locked in. */
 int netplay_start(void);
 /* This computer's IPv4 addresses, for the host to tell the others. */
