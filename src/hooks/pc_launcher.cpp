@@ -124,7 +124,7 @@ LRESULT CALLBACK launcher_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 
 // A test's script (RECOMP_LAUNCHER_SCRIPT, docs/launcher-and-overlay.md), as the SDL launcher
 // runs it: "<ms>:ui:<target>" clicks a named control (retried while it is not on screen),
-// "<ms>:click:<x>:<y>" a point, "<ms>:shot:<file.bmp>" saves the window, "<ms>:play" and
+// "<ms>:click:<x>:<y>" a point, "<ms>:move:<x>:<y>" points without clicking, "<ms>:shot:<file.bmp>" saves the window, "<ms>:play" and
 // "<ms>:quit" close the launcher. A click is a move, a press 60 ms later and a release
 // 100 ms after that, as a mouse makes it.
 struct ScriptStep {
@@ -156,7 +156,7 @@ static void script_start(const char *text)
         if (sscanf(item, "%llu:%7[a-z]", &st.at, st.kind) == 2) {
             const char *rest = strchr(strchr(item, ':') + 1, ':');
             if (rest) snprintf(st.arg, sizeof st.arg, "%s", rest + 1);
-            if (!strcmp(st.kind, "click")) sscanf(st.arg, "%f:%f", &st.x, &st.y);
+            if (!strcmp(st.kind, "click") || !strcmp(st.kind, "move")) sscanf(st.arg, "%f:%f", &st.x, &st.y);
             g_script[g_script_count++] = st;
         }
         text = end ? end + 1 : text + n;
@@ -198,6 +198,8 @@ static const char *script_step(ImGuiIO &io)
             g_click_y = st.y;
             g_press_at = now + 60;
             g_release_at = now + 160;
+        } else if (!strcmp(st.kind, "move")) {
+            io.AddMousePosEvent(st.x, st.y);
         } else if (!strcmp(st.kind, "shot")) {
             shot = st.arg;
         } else if (!strcmp(st.kind, "play")) {
