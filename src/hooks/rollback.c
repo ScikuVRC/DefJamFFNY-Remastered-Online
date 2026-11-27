@@ -321,7 +321,7 @@ static LONG CALLBACK writer_crash(EXCEPTION_POINTERS *e)
 static void own_init(void)
 {
     s_own_state = -1;
-    if (!getenv("RECOMP_ROLLBACK_TEST")) return;
+    if (!getenv("RECOMP_ROLLBACK_TEST") && !getenv("RECOMP_NETPLAY_ROLLBACK")) return;
     s_own = (unsigned char *)calloc(OWN_BYTES + 0x400000u, 1);
     s_own_page = (unsigned char *)calloc(OWN_BYTES / PAGE + 2048, 1);
     if (s_own && s_own_page) s_own_state = 1;
@@ -410,9 +410,36 @@ static void fight_alloc_mark(uint32_t addr, uint32_t size)
         s_fight_alloc[g / 8] |= (unsigned char)(1u << (g % 8));
 }
 
+/* How many stores have reported: 0 in a build that wasn't made for rollback. */
+static volatile long s_notes;
+long rollback_note_count(void) { return s_notes; }
+
+/* A live netplay fight starts with rollback (netplay.c): the same set-up as the rewind test. */
+void rollback_live_begin(void)
+{
+    /* What no rewind touches, as the replay rewind test proved it (its skip file): devices and
+     * the kernel's area, the DirectSound section, the other threads' stacks and the memory
+     * beyond 17 MB, the contiguous window outside the game heap (push buffers, textures, the
+     * GPU's), the sound engine's tables and timers, the stream table. */
+    static const uint32_t fixed[][2] = {
+        {0x233000u, 0x237000u}, {0x256A00u, 0x27CD84u}, {0x700000u, 0xF7F000u}, {0x1100000u, 0x4000000u},
+        {0x80000000u, 0x81000000u}, {0x83A09000u, 0x84000000u}, {0x2B9000u, 0x2BA000u}, {0x2BD000u, 0x2BE000u},
+        {0x2E6000u, 0x2E8000u}, {0x3A9000u, 0x3AA000u}, {0x3AB400u, 0x3AB500u}, {0x3AD000u, 0x3AF000u},
+        {0x331900u, 0x331F00u}, {0x3C94F0u, 0x3C9700u},
+    };
+    static int once;
+    unsigned i;
+    s_heapfix = 1;
+    if (!once++)
+        for (i = 0; i < sizeof fixed / sizeof fixed[0]; i++) rollback_skip(fixed[i][0], fixed[i][1]);
+    rollback_skip_audio();
+    rollback_own_reset();
+}
+
 void rollback_note_write(unsigned addr, unsigned size)
 {
     int audio = (size & 0x40000000u) != 0;
+    if (!s_notes) s_notes = 1;
     uint32_t sp = g_esp;
     size_t at;
     unsigned i;

@@ -1734,6 +1734,7 @@ static net_step s_sync_peer_step[MAXP][SYNC_KEEP], s_sync_mine_step[SYNC_KEEP];
 static int s_host_lost;                 /* a joiner: the host's connection is gone */
 static int s_net_match;                 /* this process's netplay matches so far */
 static int s_vote[MAXP];                /* after match s_net_match: -1 none, 0 quit, 1 rematch */
+static long s_peer_ahead[MAXP];         /* rollback: how far ahead each other game says it is */
 
 static void store_input(int p, net_step step, const uint32_t *w)
 {
@@ -1761,6 +1762,44 @@ static void host_gone(int p)
     send_all(-1, "GONE %d %lld", p, from);
 }
 
+/* RECOMP_NETPLAY_LAG_MS=<n> (tests): each input received is held back n ms before this game
+ * sees it, as a slow connection would. The worker thread alone touches the queue. */
+#define LAGQ 4096
+static int s_lag_ms = -1;
+static struct { unsigned long long at; int p; net_step step; uint32_t w[ENTRY_WORDS]; } s_lagq[LAGQ];
+static int s_lag_head, s_lag_tail;
+
+static unsigned long long lag_clock(void)
+{
+#if defined(_WIN32)
+    return GetTickCount64();
+#else
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (unsigned long long)t.tv_sec * 1000ull + (unsigned long long)t.tv_nsec / 1000000ull;
+#endif
+}
+
+static int lag_ms(void)
+{
+    if (s_lag_ms < 0) {
+        const char *v = getenv("RECOMP_NETPLAY_LAG_MS");
+        s_lag_ms = v && *v ? atoi(v) : 0;
+        if (s_lag_ms < 0) s_lag_ms = 0;
+        if (s_lag_ms) fprintf(stderr, "[NETPLAY] holding each input back %d ms (RECOMP_NETPLAY_LAG_MS)\n", s_lag_ms);
+    }
+    return s_lag_ms;
+}
+
+static void lag_flush(void)
+{
+    unsigned long long now = lag_clock();
+    while (s_lag_head != s_lag_tail && s_lagq[s_lag_head].at <= now) {
+        store_input(s_lagq[s_lag_head].p, s_lagq[s_lag_head].step, s_lagq[s_lag_head].w);
+        s_lag_head = (s_lag_head + 1) % LAGQ;
+    }
+}
+
 static void handle_game_line(int from, const char *line)
 {
     net_step step;
@@ -1768,9 +1807,23 @@ static void handle_game_line(int from, const char *line)
     uint32_t w[ENTRY_WORDS], hash;
     if (sscanf(line, "IN %d %lld %x %x %x %x %x %x", &p, &step, &w[0], &w[1], &w[2], &w[3], &w[4], &w[5]) == 8
         && p >= 0 && p < MAXP && step > 0) {
+        long ahead;
         if (s_hosting) {
             if (p != from) return;
             send_all(from, "%s", line);
+        }
+        if (sscanf(line, "IN %*d %*lld %*x %*x %*x %*x %*x %*x %ld", &ahead) == 1) {
+            lock();
+            s_peer_ahead[p] = ahead;
+            unlock();
+        }
+        if (lag_ms() && (s_lag_tail + 1) % LAGQ != s_lag_head) {
+            s_lagq[s_lag_tail].at = lag_clock() + (unsigned long long)lag_ms();
+            s_lagq[s_lag_tail].p = p;
+            s_lagq[s_lag_tail].step = step;
+            memcpy(s_lagq[s_lag_tail].w, w, sizeof w);
+            s_lag_tail = (s_lag_tail + 1) % LAGQ;
+            return;
         }
         store_input(p, step, w);
     } else if (sscanf(line, "AT %d %lld", &p, &step) == 2 && p >= 0 && p < MAXP) {
@@ -1814,7 +1867,8 @@ static void listen_in_game(void)
     int ready[MAXP], p;
     for (;;) {
         int any = 0;
-        wait_sockets(SOCK_BAD, ready, 500);
+        wait_sockets(SOCK_BAD, ready, lag_ms() ? 1 : 500);
+        lag_flush();
         for (p = 0; p < MAXP; p++) {
             if (s_peer[p] == SOCK_BAD) continue;
             any = 1;
@@ -2220,16 +2274,18 @@ static uint32_t fight_hash(void)
 /* Every game sends its hash; a joiner compares it with the host's, the host with each
  * joiner's. The others' hashes for the previous check have had a whole interval to
  * arrive. */
-static void desync_check(void)
+static void rec_hash_at(long step, uint32_t hash);
+
+/* `step`'s hash `mine` (with rollback: once the step is confirmed, the hash its start had). */
+static void desync_check_at(long step, uint32_t mine)
 {
-    int i = (int)((s_step / SYNC_EVERY) % SYNC_KEEP);
-    int prev = (int)(((s_step / SYNC_EVERY) + SYNC_KEEP - 1) % SYNC_KEEP);
+    int i = (int)((step / SYNC_EVERY) % SYNC_KEEP);
+    int prev = (int)(((step / SYNC_EVERY) + SYNC_KEEP - 1) % SYNC_KEEP);
     int p, me = local_player();
-    uint32_t mine = fight_hash();
-    rec_hash(mine);
-    send_all(-1, "SYNC %d %lld %08x", me, NET_STEP(s_net_match, s_step), mine);
+    rec_hash_at(step, mine);
+    send_all(-1, "SYNC %d %lld %08x", me, NET_STEP(s_net_match, step), mine);
     s_sync_mine[i] = mine;
-    s_sync_mine_step[i] = NET_STEP(s_net_match, s_step);
+    s_sync_mine_step[i] = NET_STEP(s_net_match, step);
     if (s_desynced) return;
     for (p = 0; p < MAXP; p++) {
         net_step peer_step;
@@ -2239,7 +2295,7 @@ static void desync_check(void)
         peer_step = s_sync_peer_step[p][prev];
         peer = s_sync_peer[p][prev];
         unlock();
-        if (peer_step <= 0 || peer_step != NET_STEP(s_net_match, s_step - SYNC_EVERY)
+        if (peer_step <= 0 || peer_step != NET_STEP(s_net_match, step - SYNC_EVERY)
             || s_sync_mine_step[prev] != peer_step)
             continue;
         if (peer != s_sync_mine[prev]) {
@@ -2251,6 +2307,11 @@ static void desync_check(void)
         }
     }
     fflush(stderr);
+}
+
+static void desync_check(void)
+{
+    desync_check_at(s_step, fight_hash());
 }
 
 /* ---- Replays and the record (netplay_record.h) ------------------------------------
@@ -2408,34 +2469,63 @@ static void rec_begin(void)
 }
 
 /* After this step's inputs are known: the slots whose input changed. */
-static void rec_step(void)
+static void rec_step_at(long step, uint32_t (*in)[ENTRY_WORDS])
 {
     int slot, i;
     if (!s_rec) return;
     for (slot = 0; slot < s_match.slots && slot < MAXP; slot++) {
-        if (!memcmp(s_current[slot], s_rec_last[slot], sizeof s_current[slot])) continue;
-        fprintf(s_rec, "S %ld %d", s_step, slot);
-        for (i = 0; i < ENTRY_WORDS; i++) fprintf(s_rec, " %x", s_current[slot][i]);
+        if (!memcmp(in[slot], s_rec_last[slot], sizeof in[slot])) continue;
+        fprintf(s_rec, "S %ld %d", step, slot);
+        for (i = 0; i < ENTRY_WORDS; i++) fprintf(s_rec, " %x", in[slot][i]);
         fputc('\n', s_rec);
-        memcpy(s_rec_last[slot], s_current[slot], sizeof s_current[slot]);
+        memcpy(s_rec_last[slot], in[slot], sizeof in[slot]);
     }
 }
 
-static void rec_hash(uint32_t hash)
+static void rec_step(void)
+{
+    rec_step_at(s_step, s_current);
+}
+
+static void rec_hash_at(long step, uint32_t hash)
 {
     if (!s_rec) return;
-    fprintf(s_rec, "H %ld %08x\n", s_step, hash);
-    if (s_step % 600 == 0) fflush(s_rec);
+    fprintf(s_rec, "H %ld %08x\n", step, hash);
+    if (step % 600 == 0) fflush(s_rec);
 }
+
+/* ---- Live rollback (RECOMP_NETPLAY_ROLLBACK=1) --------------------------------------
+ * Instead of waiting for every player's input each step, a game guesses what it hasn't
+ * received yet (the player's last input again) and plays on. When the real input arrives
+ * and differs, the game goes back to the start of that step (the journal, rollback.c) and
+ * plays the steps since again, all inside one frame. Only confirmed steps (every input
+ * real, none guessed wrong) are recorded, hashed for the desync check, or decide a result.
+ * Outside the fight proper (the walk-in, the knockout and after) it waits for the inputs,
+ * as lockstep does, so nothing that leaves the fight happens on a guess. Needs the build
+ * whose stores report themselves (rollback_note_write); without it the match is lockstep. */
+#define AHEAD_MAX 12                    /* steps past the last confirmed one before waiting */
+static int s_live_setting = -1;
+static int s_live_on;                   /* this fight runs with rollback */
+static long s_conf;                     /* the last confirmed step */
+static long s_live_target;              /* a re-run plays until s_step reaches this */
+static int s_live_resim;
+static long s_live_rewinds, s_live_rewound_steps, s_live_waits, s_live_slowed;
+static long s_tick_of[RING];            /* the journal tick each step ran in */
+static uint32_t s_used[RING][MAXP][ENTRY_WORDS];
+static uint32_t s_hash_of[RING];        /* fight_hash at each step's start */
+static int s_pend_on, s_pend_w, s_pend_l;
+static long s_pend_step;
+static uint32_t s_pend_code;
 
 /* What the game's result recorder (sub_001A6A80) was given: two lists of slots, each
  * ended by -1, and its code (docs/research/match-end-state.md): bit 0 the match is decided,
  * bit 2 a draw. Only the decided one counts, once a match. A match a player left before it
  * was decided is unfinished: the one still there won against an empty pad. */
+static void result_record(long step, int wmask, int lmask, uint32_t code);
+
 void netplay_result(uint32_t winners, uint32_t losers, uint32_t code)
 {
-    int wmask = 0, lmask = 0, i, mine, slot, gone = 0, me;
-    char result;
+    int wmask = 0, lmask = 0, i, slot;
     if (!s_session_live || !s_current_step || !(code & 1)) return;
     for (i = 0; i < MAXP; i++) {
         uint32_t w = MEM32(winners + 4u * i);
@@ -2460,8 +2550,24 @@ void netplay_result(uint32_t winners, uint32_t losers, uint32_t code)
         banner(text, 6000);
         return;
     }
+    if (s_live_on) {
+        /* With rollback the step may still be a guess: the result waits for it (live_confirm). */
+        s_pend_on = 1;
+        s_pend_step = s_step;
+        s_pend_w = wmask;
+        s_pend_l = lmask;
+        s_pend_code = code;
+        return;
+    }
+    result_record(s_step, wmask, lmask, code);
+}
+
+static void result_record(long step, int wmask, int lmask, uint32_t code)
+{
+    int mine, slot, gone = 0, me;
+    char result;
     if (s_rec) {
-        fprintf(s_rec, "R %ld %x %x %x\n", s_step, code, wmask, lmask);
+        fprintf(s_rec, "R %ld %x %x %x\n", step, code, wmask, lmask);
         fflush(s_rec);
     }
     if (s_rec_done) return;
@@ -2470,7 +2576,7 @@ void netplay_result(uint32_t winners, uint32_t losers, uint32_t code)
     lock();
     for (slot = 0; slot < s_match.slots && slot < MAXP; slot++) {
         int p = s_match.owner[slot];
-        if (p >= 0 && p != me && s_gone_from[p] <= NET_STEP(s_net_match, s_step)) gone = 1;
+        if (p >= 0 && p != me && s_gone_from[p] <= NET_STEP(s_net_match, step)) gone = 1;
     }
     unlock();
     if (gone || mine < 0) result = 'U';
@@ -2672,14 +2778,17 @@ static int journal_on(void)
 /* A game tick is about to run (recomp_manual.c, sub_00077040). */
 void netplay_journal_tick(void)
 {
-    if (journal_on() && netplay_rollback_active()) rollback_journal_mark(s_jt++);
+    if ((journal_on() || s_live_on) && netplay_rollback_active()) rollback_journal_mark(s_jt++);
 }
 
 /* The start of a game tick (recomp_manual.c, sub_00077040): with RECOMP_ROLLBACK_FAST, the rewind
  * test happens here, and the steps to play again run at once. Returns how many extra ticks to run. */
+static int live_frame(void);
+
 int netplay_rollback_frame(void)
 {
     int before;
+    if (s_live_on && !s_replaying) return live_frame();
     if (s_rb_fast < 0) s_rb_fast = getenv("RECOMP_ROLLBACK_FAST") != NULL;
     if (s_rb_fast <= 0 || !s_replaying || s_step < 1) return 0;
     before = s_rb_phase;
@@ -2692,6 +2801,18 @@ int netplay_rollback_frame(void)
 /* The extra ticks ran. */
 void netplay_rollback_frame_done(double ms, int ticks)
 {
+    if (s_live_resim) {
+        static double worst;
+        if (s_step < s_live_target)
+            fprintf(stderr, "[NETPLAY] rollback re-run stopped at step %ld of %ld\n", s_step, s_live_target);
+        if (ms > worst) {
+            worst = ms;
+            fprintf(stderr, "[NETPLAY] rollback: %d steps again in %.2f ms (the longest yet)\n", ticks, ms);
+        }
+        fflush(stderr);
+        s_live_resim = 0;
+        return;
+    }
     s_rb_fast_runs++;
     s_rb_fast_ms += ms;
     if (ms > s_rb_fast_worst) s_rb_fast_worst = ms;
@@ -2709,7 +2830,7 @@ double netplay_rollback_now_ms(void)
 /* Has the re-run reached the step it started from? */
 int netplay_rollback_rerun_more(void)
 {
-    return s_rb_phase == 2 && s_step < s_rb_at + s_rb_len;
+    return (s_rb_phase == 2 && s_step < s_rb_at + s_rb_len) || (s_live_resim && s_step < s_live_target);
 }
 
 long netplay_rollback_step(void)
@@ -2719,7 +2840,7 @@ long netplay_rollback_step(void)
 
 int netplay_rollback_active(void)
 {
-    return s_rb_parsed && s_rb_at >= 0;
+    return (s_rb_parsed && s_rb_at >= 0) || s_live_on;
 }
 
 /* What each sound call returned, per step. A re-run makes no sound calls but must see the same
@@ -2744,7 +2865,7 @@ void rollback_sound_record(uint32_t fn, uint32_t result)
     int outs = 0;
     /* A call made inside another sound call isn't the fight's to repeat. */
     if (!rollback_sound_end(out, &outs)) return;
-    if (!s_rb_parsed || s_rb_at < 0) return;
+    if (!netplay_rollback_active()) return;
     {
         static long from = -2, to;
         if (from == -2) {
@@ -2792,7 +2913,7 @@ uint32_t rollback_sound_replayed(uint32_t fn)
 
 int netplay_resimulating(void)
 {
-    return s_rb_phase == 2 && s_step < s_rb_at + s_rb_len;
+    return (s_rb_phase == 2 && s_step < s_rb_at + s_rb_len) || (s_live_resim && s_step < s_live_target);
 }
 
 /* After the game's fight step (recomp_manual.c, sub_00087700). */
@@ -2980,11 +3101,233 @@ void netplay_match_start(void)
     s_step = 0;
     s_current_step = 0;
     s_desynced = 0;
+    s_live_on = 0;
+    s_live_resim = 0;
+    s_conf = 0;
+    s_pend_on = 0;
     if (s_inited) lock();
     s_net_match++;
     for (p = 0; p < MAXP; p++) s_vote[p] = -1;
     if (s_inited) unlock();
     if (s_session_live && !s_replaying) rec_begin();
+}
+
+static int live_wanted(void)
+{
+    if (s_live_setting < 0) {
+        const char *v = getenv("RECOMP_NETPLAY_ROLLBACK");
+        s_live_setting = v && *v && strcmp(v, "0") != 0;
+    }
+    return s_live_setting && !s_replaying;
+}
+
+/* The fight's first step: rollback on, if this build can. */
+static void live_begin(void)
+{
+    extern long rollback_note_count(void);
+    extern void rollback_live_begin(void);
+    s_live_on = 0;
+    if (rollback_note_count() == 0) {
+        fprintf(stderr, "[NETPLAY] rollback asked for, but this build's stores don't report themselves: lockstep\n");
+        fflush(stderr);
+        return;
+    }
+    rollback_live_begin();
+    s_live_on = 1;
+    s_conf = s_delay;
+    s_live_resim = 0;
+    s_pend_on = 0;
+    s_live_rewinds = s_live_rewound_steps = s_live_waits = 0;
+    fprintf(stderr, "[NETPLAY] rollback: guesses up to %d steps ahead, input delay %d\n", AHEAD_MAX, s_delay);
+    fflush(stderr);
+}
+
+/* Do `step`'s real inputs differ from what it was played with? (Every one has arrived.) */
+static int live_guessed_wrong(long step)
+{
+    int slot, wrong = 0, me = local_player();
+    lock();
+    for (slot = 0; slot < MAXP && !wrong; slot++) {
+        int p = s_match.owner[slot];
+        if (p < 0 || p == me || s_gone_from[p] <= NET_STEP(s_net_match, step)) continue;
+        if (memcmp(s_inputs[p][step % RING], s_used[step % RING][slot], sizeof s_used[0][0])) {
+            static int said;
+            wrong = 1;
+            if (said++ < 12)
+                fprintf(stderr, "[NETPLAY] step %ld slot %d: played %08x %08x, real %08x %08x (key %s)\n", step, slot,
+                        s_used[step % RING][slot][0], s_used[step % RING][slot][1], s_inputs[p][step % RING][0],
+                        s_inputs[p][step % RING][1],
+                        s_input_step[p][step % RING] == NET_STEP(s_net_match, step) ? "this step's" : "another step's");
+        }
+    }
+    unlock();
+    return wrong;
+}
+
+/* Every input of `step` is real and was played as it is. */
+static void live_confirm(long step)
+{
+    s_conf = step;
+    rec_step_at(step, s_used[step % RING]);
+    if (step % SYNC_EVERY == 0) desync_check_at(step, s_hash_of[step % RING]);
+    if (s_pend_on && s_pend_step <= step) {
+        s_pend_on = 0;
+        result_record(s_pend_step, s_pend_w, s_pend_l, s_pend_code);
+    }
+}
+
+static void live_balance(void);
+static long live_ahead(void);
+
+/* A frame starts (netplay_rollback_frame). Confirms what can be; goes back when a guess was
+ * wrong and returns how many steps to play again; waits when too far ahead, or outside the
+ * fight proper. */
+static int live_frame(void)
+{
+    long k, bad = 0, need, T;
+    int waited;
+    if (!s_live_on || s_live_resim || !s_session_live) return 0;
+    {
+        static unsigned long long last;
+        unsigned long long now = lag_clock();
+        if (now - last > 3000) {
+            last = now;
+            fprintf(stderr, "[NETPLAY] rollback status: step %ld, confirmed %ld, phase %u, %ld rewinds (%.1f steps), "
+                            "%ld waits, %ld slowed frames, ahead %ld\n",
+                    s_step, s_conf, (unsigned)MEM32(0x003B8F30u), s_live_rewinds,
+                    s_live_rewinds ? (double)s_live_rewound_steps / (double)s_live_rewinds : 0.0, s_live_waits,
+                    s_live_slowed, live_ahead());
+            fflush(stderr);
+        }
+    }
+    live_balance();
+    need = MEM32(0x003B8F30u) != 1u ? s_step : s_step - AHEAD_MAX;
+    for (k = s_conf + 1; k <= need; k++) {
+        if (!wait_for_all(all_inputs, NET_STEP(s_net_match, k), STALL_MS, &waited)) {
+            end_session(s_host_lost ? "the host disconnected" : "a player stopped sending");
+            s_live_on = 0;
+            return 0;
+        }
+        if (waited > 1) s_live_waits++;
+    }
+    for (k = s_conf + 1; k <= s_step; k++) {
+        if (!all_inputs(NET_STEP(s_net_match, k))) break;
+        if (live_guessed_wrong(k)) { bad = k; break; }
+        live_confirm(k);
+    }
+    if (!bad) return 0;
+    T = s_tick_of[bad % RING];
+    if (!rollback_journal_restore(T, s_jt - 1)) {
+        fprintf(stderr, "[NETPLAY] rollback could not go back to step %ld (tick %ld); the match can't go on\n", bad, T);
+        fflush(stderr);
+        end_session("rollback failed");
+        s_live_on = 0;
+        return 0;
+    }
+    {
+        extern void rollback_releases_rewound(long step);
+        rollback_releases_rewound(bad - 1);
+    }
+    s_jt = T;
+    s_live_target = s_step;
+    s_live_rewinds++;
+    s_live_rewound_steps += s_step - bad + 1;
+    if (s_live_rewinds == 1 || s_live_rewinds % 200 == 0)
+        fprintf(stderr, "[NETPLAY] rollback %ld: back to step %ld from %ld (%.1f steps a rewind on average, %ld waits)\n",
+                s_live_rewinds, bad, s_step, (double)s_live_rewound_steps / (double)s_live_rewinds, s_live_waits);
+    if (s_pend_on && s_pend_step >= bad) s_pend_on = 0;
+    s_step = bad - 1;
+    s_live_resim = 1;
+    return (int)(s_live_target - s_step);
+}
+
+/* How many steps this game is past the furthest step it has heard of from the others. */
+static long live_ahead(void)
+{
+    long ahead = 0;
+    int slot, me = local_player();
+    lock();
+    for (slot = 0; slot < MAXP; slot++) {
+        int p = s_match.owner[slot];
+        long theirs;
+        if (p < 0 || p == me || s_gone_from[p] != NO_STEP || s_last_in[p] <= 0) continue;
+        theirs = STEP_OF(s_last_in[p]) - s_delay;
+        if (s_step - theirs > ahead) ahead = s_step - theirs;
+    }
+    unlock();
+    return ahead;
+}
+
+/* Keep level: a game further ahead of the others than they are of it waits a little each
+ * frame, so neither side guesses (and goes back) much further than the connection's lag. */
+static void live_balance(void)
+{
+    long mine = live_ahead(), theirs = 0;
+    int slot, me = local_player();
+    lock();
+    for (slot = 0; slot < MAXP; slot++) {
+        int p = s_match.owner[slot];
+        if (p >= 0 && p != me && s_peer_ahead[p] > theirs) theirs = s_peer_ahead[p];
+    }
+    unlock();
+    if (mine - theirs >= 2) {
+        s_live_slowed++;
+        sleep_ms(mine - theirs >= 6 ? 12 : 6);
+    }
+}
+
+/* A fight step with rollback: the real inputs where they have arrived, guesses elsewhere. */
+static void live_step(void)
+{
+    int me = local_player(), slot, waited;
+    uint32_t mine[ENTRY_WORDS];
+    long k = ++s_step;
+    if (k == 1) {
+        send_all(-1, "AT %d %lld", me, NET_STEP(s_net_match, 1));
+        if (!wait_for_all(all_at, NET_STEP(s_net_match, 1), BARRIER_MS, &waited)) {
+            end_session(s_host_lost ? "the host disconnected" : "not every player arrived");
+            return;
+        }
+        fprintf(stderr, "[NETPLAY] every player at the first step after %d ms: fight\n", waited);
+        live_begin();
+    }
+    if (!s_live_resim) {
+        local_input(k, mine);
+        store_input(me, NET_STEP(s_net_match, k + s_delay), mine);
+        /* The ninth word: how far ahead of the others this game is (older games ignore it). */
+        send_all(-1, "IN %d %lld %08x %08x %08x %08x %08x %08x %ld", me, NET_STEP(s_net_match, k + s_delay),
+                 mine[0], mine[1], mine[2], mine[3], mine[4], mine[5], live_ahead());
+    }
+    memset(s_current, 0, sizeof s_current);
+    if (k > s_delay) {
+        if (!s_live_on && !wait_for_all(all_inputs, NET_STEP(s_net_match, k), STALL_MS, &waited)) {
+            end_session(s_host_lost ? "the host disconnected" : "a player stopped sending");
+            return;
+        }
+        lock();
+        for (slot = 0; slot < MAXP; slot++) {
+            int p = s_match.owner[slot];
+            if (p < 0 || s_gone_from[p] <= NET_STEP(s_net_match, k)) continue;
+            if (s_input_step[p][k % RING] == NET_STEP(s_net_match, k))
+                memcpy(s_current[slot], s_inputs[p][k % RING], sizeof s_current[slot]);
+            else
+                memcpy(s_current[slot], s_used[(k - 1) % RING][slot], sizeof s_current[slot]);   /* a guess */
+        }
+        unlock();
+    }
+    memcpy(s_used[k % RING], s_current, sizeof s_current);
+    if (s_live_resim) {
+        static int said;
+        if (said++ < 24)
+            fprintf(stderr, "[NETPLAY] re-run step %ld (tick %ld): slots %08x %08x\n", k, s_jt - 1, s_current[0][0], s_current[1][0]);
+    }
+    s_tick_of[k % RING] = s_jt - 1;
+    s_hash_of[k % RING] = k % SYNC_EVERY == 0 ? fight_hash() : 0;
+    s_current_step = k;
+    if (!s_live_on) {               /* this build can't: lockstep */
+        rec_step();
+        if (k % SYNC_EVERY == 0) desync_check();
+    }
 }
 
 void netplay_step(void)
@@ -2995,10 +3338,11 @@ void netplay_step(void)
     if (s_replaying) { replay_step(); return; }
     if (s_delay < 0) {
         const char *d = getenv("RECOMP_NETPLAY_DELAY");
-        s_delay = d && *d ? atoi(d) : 3;
+        s_delay = d && *d ? atoi(d) : (live_wanted() ? 1 : 3);
         if (s_delay < 1) s_delay = 1;
         if (s_delay > 30) s_delay = 30;
     }
+    if (live_wanted()) { live_step(); return; }
     s_step++;
     if (s_step == 1) {
         /* Every game is at the first step of the same match; whichever got here first
