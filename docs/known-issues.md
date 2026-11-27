@@ -5,7 +5,7 @@ routes cover menus, setup, a fight, Story intro/creator, crib/gym and Unlock
 Fighters selection. They do not cover every mode or a full Story campaign.
 Issue numbers below (#98 and so on) are from the original project's tracker.
 
-## v0.15.0
+## v0.16.0
 
 - **Online play uses TCP.** A lost packet stalls both games until it is resent; on a poor
   connection the fight can hitch.
@@ -15,7 +15,7 @@ Issue numbers below (#98 and so on) are from the original project's tracker.
   connection to the public address reached the lobby, the port was closed again). If a friend
   cannot join, read the lobby's router line; forward TCP port 7777 by hand, or use a virtual
   LAN (such as Radmin VPN) and join the host's address on it.
-- **Slow venues with HD packs (fixed after v0.15.0):** Subway (37 fps) and Gun Hill Garage (43)
+- **Slow venues with HD packs (fixed in v0.16.0):** Subway (37 fps) and Gun Hill Garage (43)
   ran slow with the HD packs on: the pack's lookup table put their 24 palettised crowd textures in
   6 slots, they evicted one another, and every bind hashed a texture in full again (about 700
   SHA-256s a second, 20 of every 25 ms). Both run at 60 now. One start in five also never
@@ -60,6 +60,10 @@ complete on Windows, macOS and Linux; not every gate passed. See the
 - [Mac input test](research/rc-v0.13.0-macos.md): latest awake refresh-off trial
   generated 38/40 scheduled pulses; every generated pulse reached the game.
   Refresh-on passed 40/40. The strict test remains failed; no runtime-loss claim.
+- **Windows `replay` check differs from its recording (v0.16.0, cause not found).** The pinned
+  fight plays the same in every run, but no longer as recorded on 2026-10-06; it last matched on
+  2026-10-31. The SC04 fix, the isolation code (#98) and the newest toolkit update are ruled out. The recording is unchanged
+  until the change is found.
 - Deck replay/repeat golden discrepancy remains under #98. Repeat runs now agree
   with each other at 79 records, but the stored golden has 80.
 - Owner-reported SC04 A/V lag #161

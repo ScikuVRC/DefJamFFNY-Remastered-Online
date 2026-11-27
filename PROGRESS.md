@@ -10,6 +10,7 @@
 
 | Area | State | Notes |
 |---|---|---|
+| Release v0.16.0 — Online record, and fixes from the other port (D254, D255) | ✅ tagged from `main` | Candidate 46a8c4d, toolkit `ee9c149` (fork `defjam/upstream-fixes`). Windows full regression 16/17; `replay` differs from its golden, cause not found (§7). macOS/Deck regressions and play-test not run. |
 | Release v0.12.3 — Smoother fights and the CachyOS build fix (D229-D231) | ✅ stable/latest published from PR #145 | Tag at merge `65038d0`, toolkit `be83eb9` unchanged (fork `defjam/release-0.12.3` = `defjam/upstream-v0.16`). Contents: #143 frame-clock lock (#140), #139 C++20 build (#138), #149 #98 record corrections. Windows regression 14/14 (`logs/regress-20261027-215455.txt`), opt-in 6/6 (two reruns), setup install and Clean Update from v0.12.2 byte-identical; macOS and Steam Deck/Linux pass (owner); owner play-test pass. #141 and #146 moved to v0.12.4. |
 | Release v0.12.2 — Steadier Story frames and the fire-escape fix (D216-D228) | ✅ stable/latest published from PR #136 | Tag at merge `4fc0f24`, toolkit `be83eb9` (fork `defjam/release-0.12.2`, `defjam/upstream-v0.16` fast-forwarded). Contents: #129 executor performance (#109), #131 fire-escape pan, #135 menu text 1.2 records, #134 setup handoff. Windows regression 14/14 (`logs/regress-20261027-055128.txt`), repeat 2/2, visual 4/4; macOS 18/18; Steam Deck/Linux pass (owner). Owner play-test and a local Windows setup install/Clean Update follow publication (D228). |
 | Release v0.12.1 — Created fighters and widescreen fixes (D205-D213) | ✅ stable/latest published from PR #123 | Tag at merge `9c5c2d2`, toolkit `7a0f2f6` (fork `defjam/release-0.12.1`, `defjam/upstream-v0.16` fast-forwarded). Contents: #110 portraits (#108), #114 right meters (#112), #115 eye colours (#111), #116 thumbnails (#113), #117 paused HUD (#95), #121 song notification (#118), #122 shop LOADING flash (#119). Windows regression 14/14 + opt-in 6/6 (`logs/regress-20261026-072421.txt`), setup install + Clean Update; macOS and Deck full regression pass; owner play-test pass. #97 and #109 moved to v0.13.0. |
@@ -478,51 +479,37 @@ defjam-recomp/
 
 > Recent entries only; older entries remain unchanged in the local `docs/worklog/` archive.
 
-- 2026-10-31 21:36 — Owner confirms Windows memory gate already resolved. Mac build fix committedcfcc5e6, source/build freshness verified; requested input repeat logs/regress-20261031-213153.txt FAIL(off38/40,on40/40), on AC/awake/no sleep. Off first scheduled25.00/25.07s pair absent before SDL injection, all38generated rises delivered to every stage; max gaps92.630/70.486ms, no trace loss/discards, both saves restored. No downstream game input loss shown; injection-window cause unproven, no unrelated code fix. Report docs/research/rc-v0.13.0-macos.md and logs/rc-input-owner-confirm.json. No push/merge/tag/release.
-- 2026-10-31 21:55 — Owner authorized commit/push and comments on PR160. Published cfcc5e6 Mac Clang two-cast build fix/report plus da8bcd7 input confirmation/Windows correction by normal fast-forward push to release/v0.13.0; remote base5d22e8b unchanged before push. Findings posted  input test FAIL(off38/40,on40/40), no downstream loss shown, Windows memory resolved per owner, other historical results preserved. Source audit612files/0failures, no game data/generated code/logs/captures/binaries published. No merge/tag/release.
 - 2026-11-01 07:06 — D251: reviewed both platform comments onPR160; owner authorizes release with explicit qualifications. Created memory investigation166/v0.14.0 (Windows historical deltas, Deck73.2/67.8MiB, Mac RSS controls; no allocator/leak claim). Integrated main source-authoring boundary cleanup, preserving frozen generator and data ignore; only merge conflict was.gitignore. Finalized release notes/README/known issues with Mac38/40 injection and Deck golden gap, unperformed local setup gates, and owner approval. CI/source/unit checks before merge/tag; no runtime threshold/golden changes.
 - 2026-11-01 07:37 — D253: PRs153/156/158/160 merged; immutable v0.13.0 at f961c34540d25fb75091dc432129d5048ab55e5a. CI41319786012 and Source release41321077471 PASS. Downloaded/verified9assets: actual GitHub digests, checksums, production source/toolkit pins and game-free inventories agree (logs/release-v0.13.0-assets/{github-release,verified-release-assets}.json). Published stable/latest2026-11-01T15:36:01Z; milestone6 closed0open/4closed, v0.14.0 open. Final Windows7/7 in12min, units749pass/27skip/1slow deselected, final French/English subtitle captures visually reviewed (logs/regress-20261101-072301.txt). Prior Windows/Mac/Deck failures and final language-HD coverage qualification retained; memory166open; no thresholds/goldens changed. Installer SHA256: windows-x64 8020fe8747f38ec90fc5f59fe274afec7b03a75d0b2e22dc3f2be822b3a39be6; macos-arm64 3eb1e1a3e8dd967dc4ff2ca302a3300b2421cb364af01129f473ff9a3c3e04d8; linux-x64 b439b7d70484087f221f1a8f27647da9af785b588bec6c5b8e0ec7cff0c79dd0. Monitoring complete; local worktree/settings/data/logs/builds preserved.
 - 2026-11-01 20:11 — Owner requested closing109 after confirming fix shipped in v0.12.2/mergedPR129. Posted closure evidence  and verified CLOSED/COMPLETED (2026-11-02T04:11:17Z). Windows Story VY3 executor15.5→9.6ms, >18ms frames6.2%→0.2%, p95 18.28→16.71ms/p99 19.97→16.92ms; linked release and qualified specific timing as Windows-only, separate startup host-stall issue unchanged. Administrative source record only; no new runtime change or game run.
 - 2026-11-26 19:00 — D254/D255: fixes from the other port landed on `main` directly (PRs #1 and #2 closed). Setup: stray bytecode deleted before payload verification (#263 there), uninstall log, payload unpacked with Windows `tar.exe` (Expand-Archive failed on the current runner) and a timing-safe preparation probe. Linux: language pack keeps its name, `<algorithm>` for `std::clamp`. Toolkit `ff36b88` -> `711f811`: oldest abandoned directory search given up (profile list empty after ~75 saves), unaligned DXT base levels decoded. Game: saved volumes reach the mixer after a load (owner's save 16/24/24 now applied; was 0.85), close waits for a save in progress (15 ms wait seen), UTF-8 process code page (`src/game.manifest`), `nanosleep` in save_activity. Checks: fixtures kernel_directory and d3d8_thin_dxt pass; `regress --quick` m2/m3/m4a/fight ok on both batches (`logs/regress-20261126-142317.txt`, `logs/regress-20261126-183135.txt`; unit row fails locally only for the missing `cryptography` module, 764 other unit tests pass); combined tree builds. One m3 run at about 19 fps with 60+ guest-core starvation warnings while the machine was busy; re-run normal.
 - 2026-11-26 20:20 — D254: ported the other port's fatal-error fix (their `010b28c`). `host_fatal` now logs `[FATAL]` everywhere, shows an SDL dialog on macOS/Linux (not under `RECOMP_HEADLESS`) and writes `<data>/last-error.txt`; the launcher shows it as a popup over either Home once per start (Dismiss deletes it, Later keeps it). Checked on Windows: a copied exe with no game wrote the file, and a `RECOMP_LAUNCHER_SCRIPT` run showed the popup and `ui:Dismiss error` removed it. Built `win-x64-release`; 578 unit tests pass (3 files need `cryptography`, not installed here). Their `docs/troubleshooting.md` does not exist here; the note went into `docs/build-and-play.md`.
 - 2026-11-26 20:45 — D254: ported the other port's widescreen HUD fixes. Toolkit 711f811 -> ee9c149 on fork branch `defjam/upstream-fixes` (their 1986e35, 6b5bdc1, ce15eda, 4801dc1; their centre tag left out; left-tag fixture 75 draws, passes): combo call-out kept whole, struggle meter with its fighter's HUD (top and bottom), song banner in the 4:3 box over side-filled menus. `regress --quick` game rows ok (`logs/regress-20261126-202545.txt`, unit row only the missing `cryptography`), ffa-result ok (`logs/regress-20261126-203122.txt`); 16:9 ffa-result with `RECOMP_WS_WIDE_TRACE` (`logs/run-20261126-203156.log.err`) logs the banner in the 4:3 box, 0 crashes. Not seen in a run: a submission's struggle meter at 16:9.
+- 2026-11-26 22:00 — D254: the owner's ten-item list. `cryptography` in the test deps (b7c6024); last-error popup wrapped as paragraphs (36a9715); eleven answered §5 questions archived (bfa69c0); `scripts/other-port.py` + `config/other-port.json` (679930f, baseline game c1ca4ef / toolkit d15f727) and a Monday 10:00 read-only check task; `launcher/fight-night` deleted. Ported from the other port: SC04 zero-step fix (c677c44, their f24bf55, #161), `--isolate-crowd` for #98 (61d4130, their 08a27d9; `G_RNG_UTIL` defined here), settled-fight memory gate and `fight-cycles` route (a696c88, their 874ff69), Linux 1 MiB mmap threshold (46a8c4d, their f06f6e5). #162 Shops border not ported (needs their toolkit 351e28a/8a81887 and cheats.c). `netplay/desync-check` rebased onto 679930f locally (425703f..8007c81): two launchers host/join, ready, pick, created MARC/SCI, vote, auto-start, in sync to step 4800; not pushed (needs a force-push).
+- 2026-11-27 00:10 — v0.16.0 candidate on Windows at 46a8c4d, toolkit ee9c149: full regression 16/17 in 47 min, 4 skips (logs/regress-20261126-215524.txt); `fight-cycles` 56/56, isolated `repeat` 80 records identical but not the Deck's golden (logs/regress-20261126-222254.txt). `replay` fails with the same hash 579661f9 in four runs, also with `RECOMP_SC04_ZERO_DT_FIX` forced off (logs/regress-20261126-223103.txt) and with toolkit 711f811 (logs/regress-20261126-223522.txt); last Windows pass 2026-10-31 (D249). Recorded as a known difference, golden unchanged (owner: "release it then work on the rest").
 
 ## 7. Hand-off
 
-### Fixes from the other port on `main`, working on `main` directly — 2026-11-26 (D254, D255)
+### v0.16.0 released from `main` — 2026-11-27 (D254, D255)
 
-- **How work lands now (D255).** Commit and push straight to `main` when the owner asks; no PRs. `main` has the
-  ruleset "Protect main" (no force push, no deletion), so rebase local work onto `origin/main` and never force-push it.
-  Update this file in the same push. CI runs on every push to `main`; read it with
-  `gh run list --repo ScikuVRC/DefJamFFNY-Remastered-Online --branch main --limit 1` (without `--repo`, `gh` lists the
-  other port's runs, because the `upstream` remote points there).
-- **State.** `main` 337f8fd, version 0.15.0 (latest tag `v0.15.0`; the `v1.2.x` tags are the other port's, fetched from
-  `upstream`). Toolkit pin `ee9c149` on fork branch `defjam/upstream-fixes`. CI green through acd2d50; 903dcf1 and
-  337f8fd were queued or running when this was written.
-- **What landed today (D254, cherry-picks from `vyanhursky/DefJamFFNY-recomp`, never a merge).** Setup (stray bytecode,
-  uninstall log, `tar.exe` unpack, preparation probe), Linux language name and `<algorithm>`, toolkit dir-search
-  exhaustion and thin DXT decode, UTF-8 paths on Windows (`src/game.manifest`), saved volumes after a load
-  (`src/patches/options_volume.c`, `RECOMP_OPTIONS_VOLUME=0` turns it off), close waits for a save
-  (`src/hooks/save_activity.c`), fatal errors shown everywhere plus `<data>/last-error.txt` and a launcher popup, and the
-  widescreen HUD fixes (combo call-out, struggle meter top and bottom, song banner over side-filled menus). Every fix
-  chosen from the other port is now in; to look for newer ones, compare `upstream/main` and the other toolkit fork from
-  2026-11-26 onward.
-- **Not verified.** The struggle meter at 16:9 in a real submission (no scripted route reaches one; the left-tag fixture
-  covers the placement). The fatal-error SDL dialog on macOS and Linux. Harness captures are the 640x480 guest frame,
-  before widescreen placement, so they cannot show HUD position. The harness strips `RECOMP_*` from the environment
-  unless passed with `--env`.
-- **This PC.** The `unit` row of `regress.py` fails only because Python `cryptography` is missing
-  (`test_update.py`, `test_mod_manager.py`, `test_publish_mods.py`); `pip install cryptography` fixes it. 578 other
-  unit tests pass.
-- **Branches.** `netplay/desync-check` (local 3 ahead of its remote, 16 behind `main`): launcher fighter and venue art
-  (60da657), live online fighter select and venue vote, protocol 4 (1008576), rollback WIP (3c9de2c). Needs a rebase
-  onto `main`, then `recomp.ps1` (re-lift) and a build; untested: auto-start after the vote, created fighters; rollback
-  design undecided. `launcher/fight-night` is fully in `main` (0 commits ahead) and can be deleted with the owner's OK.
-- **Next, in the owner's list from 2026-11-26.** Install `cryptography`; owner plays one submission at 16:9; tidy the
-  ragged line breaks in the last-error popup; clean up branches and answered §5 items; cut a release with today's fixes
-  (full regression per platform, `docs/releasing.md`); periodic check of the other port; finish netplay; Deck replay
-  divergence (#98, step 541); memory investigation and #161/#162 (milestone v0.14.0).
-- Keep this initialized-submodule worktree and the ignored local data, builds and logs for the owner's game shortcut;
-  do not archive or remove them.
+- **How work lands (D255).** Commit and push straight to `main` when the owner asks; no PRs. "Protect main" forbids
+  force pushes and deletion: rebase onto `origin/main`, never force-push. Update this file in the same push. Read CI
+  with `gh run list --repo ScikuVRC/DefJamFFNY-Remastered-Online --branch main --limit 1` (bare `gh` lists the other
+  port's runs; the `v1.2.x` tags are theirs, fetched from `upstream`).
+- **State.** Version 0.16.0, tag `v0.16.0` on `main` (release notes `docs/releases/v0.16.0.md`). Toolkit `ee9c149` on
+  fork branch `defjam/upstream-fixes`. Lifted code and the Release build on this PC are current.
+- **Replay difference, open.** Windows `replay` fails deterministically (hash 579661f9, 80 records) against
+  `tests/golden/fight-stream.json` (2026-10-06). Ruled out: the SC04 fix, the #98 isolation code, toolkit
+  711f811 -> ee9c149. Last pass 2026-10-31 (D249, 5771350). Next: bisect `git log 5771350..c677c44 -- src
+  tools/xboxrecomp` (about 40 commits; suspects the 2026-11-26 morning ports b30c375 UTF-8 paths, 0fcffd2 volumes,
+  4946d61 save-close, 1706c16 toolkit, then the netplay and v0.13.0 merges). Each step is a worktree, `recomp.ps1`,
+  build, `regress.py --only replay` (about 30 min). Do not update the golden until the change is known; macOS shares it.
+- **Other port.** `python scripts/other-port.py` lists their new commits since `config/other-port.json`; a scheduled
+  task runs it read-only on Mondays at 10:00. #162 (Shops map border) is not ported: it needs their toolkit 351e28a
+  (centre/extend tag) and 8a81887 plus `cheats.c`.
+- **Netplay.** The owner works on `netplay/desync-check` in the worktree `R:\DefJam-Xbox-netplay`. Leave it to them.
+- **Owner only.** macOS and Steam Deck regressions on v0.16.0; play-test a 16:9 submission (struggle meter), SC04, and
+  created fighters online; decide whether to port #162.
+- Keep this initialized-submodule worktree and the ignored local data, builds and logs for the owner's game shortcut.
 
 Decisions are read by number or keyword: `decision D<n>`, `decisions --grep TEXT`.
