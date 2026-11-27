@@ -32,7 +32,7 @@ Report security problems privately: see [SECURITY.md](SECURITY.md).
 1. Build the game from source with the [build guide](docs/build-and-play.md)
    (or [macOS and Linux](docs/build-macos-linux.md)). You need your own dump of
    the supported USA Xbox version.
-2. Install the test dependencies: `python -m pip install pytest pyxbe capstone Pillow numpy`.
+2. Install the test dependencies: `python -m pip install pytest pyxbe capstone Pillow numpy cryptography` (`cryptography` is for the signed mod catalogue and update tests).
 3. Read [workflows](docs/03-workflows.md) for the pipeline, diagnostics and
    troubleshooting, and the [runtime reference](docs/05-reference.md) for how
    rendering and the investigation tools work.
