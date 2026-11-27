@@ -114,7 +114,11 @@ snapshot and its runtime aliases remain here until an explicitly tested pin upda
 5. Log the iteration with numbers: in `PROGRESS.md` §6 on `main` or a release branch (update §0 if a stage changed;
    add a `D<n>` if you chose between real alternatives); on a feature branch, in the PR description (`D-new`).
 6. Commit: one commit per fix, message `fix(boot): <what> (<symptom>)` or `chore:`/`docs:`/`feat:`. Do not commit lifted code.
-   Push only when the owner asks. Write the
+   Push only when the owner asks. **Since 2026-11-26 (D255) finished work goes straight to `main`, with no PR**:
+   update `PROGRESS.md` in the same push, rebase onto `origin/main`, never force-push (ruleset "Protect main").
+   Wherever this file or `docs/agent/release.md` speaks of a PR, read the push to `main`; work in progress may still
+   sit on a feature branch. Read CI with `gh run list --repo ScikuVRC/DefJamFFNY-Remastered-Online` (the bare
+   command lists the `upstream` remote's runs). Write the
    message to a file and use `git commit -F <file>`; PowerShell 5.1 cannot pipe a here-string, and its
    `Set-Content -Encoding utf8` adds a BOM to the subject.
 7. Toolkit changes live on `ScikuVRC/xboxrecomp`, branch `defjam/timer-ideal-core` (D63; started at the accepted

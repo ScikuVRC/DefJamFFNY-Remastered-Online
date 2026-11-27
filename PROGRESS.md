@@ -507,40 +507,40 @@ defjam-recomp/
 
 ## 7. Hand-off
 
-### v0.13.0 published stable/latest — 2026-11-01 (D253)
+### Fixes from the other port on `main`, working on `main` directly — 2026-11-26 (D254, D255)
 
-- Owner requested closure of issue109; closed COMPLETED on Nov1 Pacific.
-  Comment 
-  links merged PR129/v0.12.2 and Windows timing evidence (executor15.5→9.6ms,
-  >18ms frames6.2%→0.2%, p95 18.28→16.71ms, p99 19.97→16.92ms).
-  Specific Story timing was Windows-only; no new runtime changes/tests.
-- Release complete: PRs153/156/158/160 MERGED; immutable annotated tag `v0.13.0`
-  points to main merge `f961c34540d25fb75091dc432129d5048ab55e5a`. Never move it.
-  
-- Final release-branch CI41319786012 and tagged Source release41321077471 passed.
-  Published2026-11-01T15:36:01Z, verified stable/latest, exactly nine assets.
-  Local `logs/release-v0.13.0-assets/github-release.json` and
-  `verified-release-assets.json` retain metadata/digests/provenance checks for
-  all three game-free installers. Source policy534files/0failures before records.
-- Toolkit `d569ca10811cef67ec4e9fa2173088c2f9fd0580` is public; configured fork
-  branch defjam/upstream-v0.16 was fast-forwarded. Milestone6/v0.13.0 closed with
-  zero open items; milestone3/v0.14.0 remains open, including deferred146/141.
-- Final rebuilt Windows executable89e0b82e68ff9c8c98a76af945ce8e1dec4c5fe51f4897e400a095973221fa69
-  passed7/7 targeted checks in12min (`logs/regress-20261101-072301.txt`):
-  units749pass/27skip/1slow deselected; stock goldens, fight, French, English
-  subtitles. Latest French/English subtitle captures visually reviewed.
-- Preserve earlier platform qualifications, never claim all-green: Windows full
-  16/17 with historical memory failures; Mac16/21 then4/5, awake off38/40
-  scheduled pulses generated/all38delivered and on40/40; Deck memory+73.2/+67.8MiB
-  and79vs80golden (#98). No threshold/golden changes. Earlier platform runs
-  predate final PR153 language-HD image support; final fixtures/Windows checks
-  cover that path separately. Setup real install/Clean Update and separate Deck
-  playtest were not performed; owner explicitly authorized this qualified release.
-- Memory investigation 
-  is open/v0.14.0; POSIX samples are RSS despite private_bytes JSON naming.
-  Future161SC04 and162Shops-border remain there; do not duplicate or merge164.
-- Release monitoring is finished. Keep this initialized-submodule worktree and
-  ignored local data/builds/logs for the owner's game shortcut; do not archive
-  or remove them. No further release game tests or PRs needed.
+- **How work lands now (D255).** Commit and push straight to `main` when the owner asks; no PRs. `main` has the
+  ruleset "Protect main" (no force push, no deletion), so rebase local work onto `origin/main` and never force-push it.
+  Update this file in the same push. CI runs on every push to `main`; read it with
+  `gh run list --repo ScikuVRC/DefJamFFNY-Remastered-Online --branch main --limit 1` (without `--repo`, `gh` lists the
+  other port's runs, because the `upstream` remote points there).
+- **State.** `main` 337f8fd, version 0.15.0 (latest tag `v0.15.0`; the `v1.2.x` tags are the other port's, fetched from
+  `upstream`). Toolkit pin `ee9c149` on fork branch `defjam/upstream-fixes`. CI green through acd2d50; 903dcf1 and
+  337f8fd were queued or running when this was written.
+- **What landed today (D254, cherry-picks from `vyanhursky/DefJamFFNY-recomp`, never a merge).** Setup (stray bytecode,
+  uninstall log, `tar.exe` unpack, preparation probe), Linux language name and `<algorithm>`, toolkit dir-search
+  exhaustion and thin DXT decode, UTF-8 paths on Windows (`src/game.manifest`), saved volumes after a load
+  (`src/patches/options_volume.c`, `RECOMP_OPTIONS_VOLUME=0` turns it off), close waits for a save
+  (`src/hooks/save_activity.c`), fatal errors shown everywhere plus `<data>/last-error.txt` and a launcher popup, and the
+  widescreen HUD fixes (combo call-out, struggle meter top and bottom, song banner over side-filled menus). Every fix
+  chosen from the other port is now in; to look for newer ones, compare `upstream/main` and the other toolkit fork from
+  2026-11-26 onward.
+- **Not verified.** The struggle meter at 16:9 in a real submission (no scripted route reaches one; the left-tag fixture
+  covers the placement). The fatal-error SDL dialog on macOS and Linux. Harness captures are the 640x480 guest frame,
+  before widescreen placement, so they cannot show HUD position. The harness strips `RECOMP_*` from the environment
+  unless passed with `--env`.
+- **This PC.** The `unit` row of `regress.py` fails only because Python `cryptography` is missing
+  (`test_update.py`, `test_mod_manager.py`, `test_publish_mods.py`); `pip install cryptography` fixes it. 578 other
+  unit tests pass.
+- **Branches.** `netplay/desync-check` (local 3 ahead of its remote, 16 behind `main`): launcher fighter and venue art
+  (60da657), live online fighter select and venue vote, protocol 4 (1008576), rollback WIP (3c9de2c). Needs a rebase
+  onto `main`, then `recomp.ps1` (re-lift) and a build; untested: auto-start after the vote, created fighters; rollback
+  design undecided. `launcher/fight-night` is fully in `main` (0 commits ahead) and can be deleted with the owner's OK.
+- **Next, in the owner's list from 2026-11-26.** Install `cryptography`; owner plays one submission at 16:9; tidy the
+  ragged line breaks in the last-error popup; clean up branches and answered §5 items; cut a release with today's fixes
+  (full regression per platform, `docs/releasing.md`); periodic check of the other port; finish netplay; Deck replay
+  divergence (#98, step 541); memory investigation and #161/#162 (milestone v0.14.0).
+- Keep this initialized-submodule worktree and the ignored local data, builds and logs for the owner's game shortcut;
+  do not archive or remove them.
 
 Decisions are read by number or keyword: `decision D<n>`, `decisions --grep TEXT`.

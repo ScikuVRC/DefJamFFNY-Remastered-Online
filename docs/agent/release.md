@@ -3,6 +3,11 @@
 The process and its reasons are in `docs/releasing.md`; read it first. This file is the release agent's
 checklist. Version `X.Y.Z` below; the GitHub milestone `vX.Y.Z` lists the queued PRs.
 
+**Since 2026-11-26 (D255) the owner works on `main` directly: fixes are pushed to `main`, not queued as PRs.**
+Skip "Queueing a PR". For a release, the train is the commits on `main` since the previous tag
+(`git log vPREV..main`); the release branch, the candidate regression per platform, the tag and the release
+workflow below still apply. Never force-push `main` (ruleset "Protect main").
+
 ## Queueing a PR (any agent)
 
 - Run the checks for its scope (`CONTRIBUTING.md`, "Testing"): unit tests, `check-source-tree.py`,
