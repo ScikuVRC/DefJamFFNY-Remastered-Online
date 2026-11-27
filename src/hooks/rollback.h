@@ -23,6 +23,12 @@ void rollback_restore(const RollbackState *s);
 
 /* Leave guest range [first, end) as it is on every restore (another thread's, not the fight's). */
 void rollback_skip(uint32_t first, uint32_t end);
+/* The journal: a cheap save at the start of every tick (`tick` counts up), and back to one of
+ * the last 64 (0 when it doesn't reach). */
+void rollback_journal_mark(long tick);
+int rollback_journal_restore(long tick, long last_tick);
+/* A stream library pool was set up (recomp_manual.c, sub_001E7900): rewinds leave it alone. */
+void rollback_stream_pool(uint32_t at, uint32_t size);
 /* How the guest memory now differs from the saved: changed 4 KiB pages, and up to `max`
  * ranges of them as guest addresses (first, last + 1). */
 int rollback_compare(const RollbackState *s, uint32_t (*ranges)[2], int max, int *range_count);

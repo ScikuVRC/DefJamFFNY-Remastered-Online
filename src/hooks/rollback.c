@@ -138,6 +138,115 @@ int rollback_save(RollbackState *s)
     return s->ok;
 }
 
+/* ---- The journal: a cheap save every step ----------------------------------------------------
+ * A whole save copies 128 MB. The journal instead keeps, for each of the last JSTEPS steps, the
+ * pages the fight's thread wrote during that step as they were before its first write (the
+ * lifted stores report before they store), plus the registers and the hooks' blocks at the
+ * step's start. Going back to a step puts those pages back, newest step first, with the same
+ * rules as a whole restore: skipped ranges and bytes that are not the fight's are left alone. */
+#define JSTEPS 64
+typedef struct {
+    long step;                      /* -1: empty */
+    int pages, cap;
+    uint32_t *page;                 /* own-space page numbers */
+    unsigned char *data;            /* their contents before the step wrote them */
+    RollbackState *regs;            /* registers and the hooks' blocks (no memory) */
+} JournalStep;
+static JournalStep s_j[JSTEPS];
+static int s_j_on;
+static JournalStep *s_j_now;
+static uint32_t *s_j_gen;           /* per own-space page: the journal step that copied it */
+static uint32_t s_j_count;
+
+static unsigned char *own_page_ptr(uint32_t pg)
+{
+    size_t at = (size_t)pg * PAGE;
+    return at < 0x04000000u ? (unsigned char *)XBOX_PTR((uint32_t)at)
+                            : (unsigned char *)XBOX_PTR(CONTIG_BASE + (uint32_t)(at - 0x04000000u));
+}
+
+static uint32_t own_page_guest(uint32_t pg)
+{
+    size_t at = (size_t)pg * PAGE;
+    return at < 0x04000000u ? (uint32_t)at : CONTIG_BASE + (uint32_t)(at - 0x04000000u);
+}
+
+/* The state at the start of `step`: from here on, the step's first writes to each page are kept. */
+void rollback_journal_mark(long step)
+{
+    JournalStep *j;
+    int i;
+    if (!s_j_on) {
+        s_j_gen = (uint32_t *)calloc((0x04000000u + CONTIG_SIZE) / PAGE, sizeof *s_j_gen);
+        if (!s_j_gen) { s_j_on = -1; return; }
+        for (i = 0; i < JSTEPS; i++) s_j[i].step = -1;
+        s_j_on = 1;
+    }
+    if (s_j_on < 0) return;
+    j = &s_j[step % JSTEPS];
+    j->step = step;
+    j->pages = 0;
+    if (!j->regs) j->regs = (RollbackState *)calloc(1, sizeof *j->regs);
+    if (j->regs) {
+        j->regs->ok = 1;
+        regs_save(j->regs);
+        walk(j->regs, 0);
+    }
+    s_j_now = j;
+    s_j_count++;
+}
+
+static void journal_note(size_t at, uint32_t size)
+{
+    uint32_t pg, last;
+    JournalStep *j = s_j_now;
+    if (!j || s_j_on <= 0) return;
+    last = (uint32_t)((at + (size ? size - 1 : 0)) / PAGE);
+    for (pg = (uint32_t)(at / PAGE); pg <= last; pg++) {
+        if (s_j_gen[pg] == s_j_count) continue;
+        s_j_gen[pg] = s_j_count;
+        if (j->pages == j->cap) {
+            int cap = j->cap ? j->cap * 2 : 256;
+            uint32_t *p = (uint32_t *)realloc(j->page, cap * sizeof *p);
+            unsigned char *d = p ? (unsigned char *)realloc(j->data, (size_t)cap * PAGE) : NULL;
+            if (p) j->page = p;
+            if (!d) { j->step = -1; s_j_now = NULL; return; }       /* out of memory: this step can't be gone back to */
+            j->data = d;
+            j->cap = cap;
+        }
+        j->page[j->pages] = pg;
+        memcpy(j->data + (size_t)j->pages * PAGE, own_page_ptr(pg), PAGE);
+        j->pages++;
+    }
+}
+
+static void restore_page(unsigned char *now, const unsigned char *saved, uint32_t guest, size_t len);
+static void skip_sort(void);
+
+/* Back to the start of `step`. 0 when the journal doesn't reach that far. */
+int rollback_journal_restore(long step, long now_step)
+{
+    long s;
+    int i;
+    if (s_j_on <= 0 || now_step - step >= JSTEPS) return 0;
+    for (s = step; s <= now_step; s++)
+        if (s_j[s % JSTEPS].step != s) return 0;
+    skip_sort();
+    for (s = now_step; s >= step; s--) {
+        JournalStep *j = &s_j[s % JSTEPS];
+        for (i = j->pages - 1; i >= 0; i--)
+            restore_page(own_page_ptr(j->page[i]), j->data + (size_t)i * PAGE, own_page_guest(j->page[i]), PAGE);
+        if (s > step) j->step = -1;
+    }
+    {
+        JournalStep *j = &s_j[step % JSTEPS];
+        if (j->regs) { regs_restore(j->regs); walk(j->regs, 1); }
+        j->step = -1;               /* the step runs again and is kept again */
+    }
+    s_j_now = NULL;
+    return 1;
+}
+
 /* ---- Whose bytes are whose, as the game runs (rollback_note_write) ---------------------------
  * With rollback on, every store in the lifted code reports here (scratchpad instrument.py). A
  * store by any thread but the fight's, or by audio code on any thread, marks its bytes as not the
@@ -186,6 +295,8 @@ static void writer_dump_around(uint32_t reg)
                 s_writer[w][2] & 1 ? "fight thread" : "other thread", s_writer[w][2] & 2 ? "audio code" : "plain code");
     }
 }
+
+void rollback_writer_dump(uint32_t addr) { writer_dump_around(addr); fflush(stderr); }
 
 static LONG CALLBACK writer_crash(EXCEPTION_POINTERS *e)
 {
@@ -278,6 +389,27 @@ int rollback_in_library(void)
 #define GAME_HEAP_FIRST 0x81000000u
 #define GAME_HEAP_END   0x83A09000u
 
+/* Game heap blocks the fight's thread was given since the fight started, a bit per 16 bytes.
+ * Only these are the fight's objects: the sound engine keeps its own objects in the game heap
+ * too, made before the fight, and what a sound call writes into those is the sound engine's. */
+#define HEAP_GRAIN 16u
+static unsigned char *s_fight_alloc;
+
+static int fight_allocated(uint32_t addr)
+{
+    uint32_t g = (addr - GAME_HEAP_FIRST) / HEAP_GRAIN;
+    return s_fight_alloc && (s_fight_alloc[g / 8] >> (g % 8) & 1);
+}
+
+static void fight_alloc_mark(uint32_t addr, uint32_t size)
+{
+    uint32_t g, end;
+    if (!s_fight_alloc || !s_audio_watch || addr < GAME_HEAP_FIRST || addr >= GAME_HEAP_END || !size) return;
+    end = addr + size > GAME_HEAP_END ? GAME_HEAP_END : addr + size;
+    for (g = (addr - GAME_HEAP_FIRST) / HEAP_GRAIN; g <= (end - 1 - GAME_HEAP_FIRST) / HEAP_GRAIN; g++)
+        s_fight_alloc[g / 8] |= (unsigned char)(1u << (g % 8));
+}
+
 void rollback_note_write(unsigned addr, unsigned size)
 {
     int audio = (size & 0x40000000u) != 0;
@@ -285,7 +417,8 @@ void rollback_note_write(unsigned addr, unsigned size)
     size_t at;
     unsigned i;
     int fights = sp >= MAIN_STACK_LOW && sp < MAIN_STACK_END;
-    int fight_heap = s_heapfix > 0 && addr >= GAME_HEAP_FIRST && addr < GAME_HEAP_END && !skip_covers(addr);
+    int fight_heap = s_heapfix > 0 && addr >= GAME_HEAP_FIRST && addr < GAME_HEAP_END && fight_allocated(addr) &&
+                     !skip_covers(addr);
     if (fights && audio && fight_heap) audio = 0;
     if (fights && s_call_depth && ((addr >= s_call_sp && addr < MAIN_STACK_END) || fight_heap)) {
         uint32_t word = addr & ~3u;
@@ -294,16 +427,40 @@ void rollback_note_write(unsigned addr, unsigned size)
         if (k == s_call_writes && k < CALL_WRITES) s_call_addr[s_call_writes++] = word;
     }
     if (!s_own_state) own_init();
+    {
+        /* Diagnostics: RECOMP_ROLLBACK_SPY=<hex first>-<hex end> logs who writes there. */
+        static int spy = -1, spied;
+        static unsigned spy_a, spy_b;
+        if (spy < 0) {
+            const char *v = getenv("RECOMP_ROLLBACK_SPY");
+            spy = v && sscanf(v, "%x-%x", &spy_a, &spy_b) == 2;
+        }
+        if (spy && fights && addr < spy_b && addr + (size & 0xFFFFFFu) > spy_a && s_audio_watch && spied < 20000) {
+            uint32_t k;
+            spied++;
+            fprintf(stderr, "[ROLLBACK] spy %08x = %08x (%u bytes) %s, %s:", addr, MEM32(addr & ~3u), size & 0xFFFFFFu,
+                    fights ? "fight thread" : "other thread", audio ? "audio code" : "plain code");
+            for (k = 0; k < 24; k++) {
+                uint32_t v = MEM32(sp + k * 4);
+                if (v >= 0x00011000u && v < 0x00230000u) fprintf(stderr, " %06x", v);
+            }
+            fputc('\n', stderr);
+        }
+    }
     /* Diagnostics: the audio heap (0x331EC4, 0x331EDC) written by anything but the sound engine. */
     if (s_own_state > 0 && s_audio_watch) {
         uint32_t heap = MEM32(0x331EC4u);
         if (!s_writer && heap) {
-            s_writer_heap = heap;
-            s_writer_size = MEM32(0x331EDCu);
+            /* RECOMP_ROLLBACK_WRITERS=<hex first>-<hex end> tracks that range instead. */
+            const char *range = getenv("RECOMP_ROLLBACK_WRITERS");
+            unsigned a, b;
+            if (range && sscanf(range, "%x-%x", &a, &b) == 2 && b > a) { s_writer_heap = a; s_writer_size = b - a; }
+            else { s_writer_heap = heap; s_writer_size = MEM32(0x331EDCu); }
             s_writer = (uint32_t (*)[3])calloc(s_writer_size / 4 + 1, sizeof *s_writer);
             AddVectoredExceptionHandler(1, writer_crash);
         }
-        if (s_writer && addr >= heap && addr < heap + s_writer_size) writer_note(addr, size & ~0x40000000u, sp, fights, audio);
+        if (s_writer && addr >= s_writer_heap && addr < s_writer_heap + s_writer_size)
+            writer_note(addr, size & ~0x40000000u, sp, fights, audio);
         if (heap && addr >= heap && addr < heap + MEM32(0x331EDCu) && !audio && s_audio_logged < 60) {
             uint32_t k;
             s_audio_logged++;
@@ -320,13 +477,17 @@ void rollback_note_write(unsigned addr, unsigned size)
     size &= ~0x40000000u;
     if (size > 0x400000u) return;
     if (addr < OWN_RAM) {
-        if (addr >= MAIN_STACK_LOW && addr < MAIN_STACK_END) return;
+        if (addr >= MAIN_STACK_LOW && addr < MAIN_STACK_END) {
+            if (fights && !audio && s_j_now) journal_note(addr, size);
+            return;
+        }
         at = addr;
     } else if (addr >= CONTIG_BASE && addr < CONTIG_BASE + CONTIG_SIZE) at = OWN_RAM + (size_t)(addr - CONTIG_BASE);
     else return;
     /* A byte belongs to whoever wrote it last: heap blocks get recycled, and a mark left by the
      * block's last owner must not outlive it. */
     if (fights && !audio) {
+        if (s_j_now) journal_note(at, size);
         if (s_own_page[at / PAGE] || s_own_page[(at + size) / PAGE])
             for (i = 0; i < size; i++) s_own[at + i] = 0;
         return;
@@ -345,6 +506,7 @@ void rollback_own_clear(uint32_t addr, uint32_t size)
     else if (addr >= CONTIG_BASE && addr < CONTIG_BASE + CONTIG_SIZE) at = OWN_RAM + (size_t)(addr - CONTIG_BASE);
     else return;
     memset(s_own + at, 0, size);
+    fight_alloc_mark(addr, size);
 }
 
 /* The fight starts: what the loading screen's workers wrote is the fight's data now. Only writes
@@ -355,6 +517,8 @@ void rollback_own_reset(void)
     s_audio_watch = 1;
     memset(s_own, 0, OWN_BYTES);
     memset(s_own_page, 0, OWN_BYTES / PAGE);
+    if (!s_fight_alloc) s_fight_alloc = (unsigned char *)calloc((GAME_HEAP_END - GAME_HEAP_FIRST) / HEAP_GRAIN / 8 + 1, 1);
+    else memset(s_fight_alloc, 0, (GAME_HEAP_END - GAME_HEAP_FIRST) / HEAP_GRAIN / 8 + 1);
 }
 
 /* Diagnostics: is the CRT heap's block list (sub_001E9550 walks it) still a list? */
@@ -433,6 +597,36 @@ void rollback_skip(uint32_t first, uint32_t end)
         s_skip[s_skips][1] = end;
         s_skips++;
         s_skip_sorted = 0;
+    }
+}
+
+/* The stream library's memory pools ("STRM", set up by sub_001E7900 in memory its caller gives
+ * it, often a block of the game heap). The stream thread allocates from them while the fight runs,
+ * so they are never the fight's: a rewind that put a pool back would hand the stream thread a free
+ * list it no longer matches (the crash in the pool's free, sub_001E8340). */
+#define MAX_POOLS 32
+static uint32_t s_pool[MAX_POOLS][2];
+static int s_pools;
+
+void rollback_stream_pool(uint32_t at, uint32_t size)
+{
+    int i;
+    if (!at || !size || size > 0x4000000u) return;
+    for (i = 0; i < s_pools; i++)
+        if (s_pool[i][0] == at) { s_pool[i][1] = at + size; return; }
+    if (s_pools < MAX_POOLS) {
+        s_pool[s_pools][0] = at;
+        s_pool[s_pools][1] = at + size;
+        s_pools++;
+    }
+}
+
+static void skip_stream_pools(void)
+{
+    int i;
+    for (i = 0; i < s_pools; i++) {
+        fprintf(stderr, "[ROLLBACK] stream pool %08x, %u bytes\n", s_pool[i][0], s_pool[i][1] - s_pool[i][0]);
+        rollback_skip(s_pool[i][0], s_pool[i][1]);
     }
 }
 
@@ -1066,6 +1260,7 @@ void rollback_skip_audio(void)
             rollback_skip(table, table + 32u * 0xB8u);
         }
     }
+    skip_stream_pools();
     fprintf(stderr, "[ROLLBACK] sound engine area: %u bytes used, peak %u\n", s_arena_used, s_arena_peak);
 }
 

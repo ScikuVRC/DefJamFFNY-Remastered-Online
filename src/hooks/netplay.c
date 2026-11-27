@@ -2658,6 +2658,23 @@ static double s_rb_fast_ms, s_rb_fast_worst;
 static void rollback_test(void);
 static double rb_ms(void);
 
+/* RECOMP_ROLLBACK_JOURNAL=1: rewinds use the per-tick journal (rollback.c) instead of a whole
+ * saved copy. Ticks are counted on their own: a tick need not be a fight step. */
+static int s_journal = -1;
+static long s_jt, s_rb_jt;
+
+static int journal_on(void)
+{
+    if (s_journal < 0) s_journal = getenv("RECOMP_ROLLBACK_JOURNAL") != NULL;
+    return s_journal;
+}
+
+/* A game tick is about to run (recomp_manual.c, sub_00077040). */
+void netplay_journal_tick(void)
+{
+    if (journal_on() && netplay_rollback_active()) rollback_journal_mark(s_jt++);
+}
+
 /* The start of a game tick (recomp_manual.c, sub_00077040): with RECOMP_ROLLBACK_FAST, the rewind
  * test happens here, and the steps to play again run at once. Returns how many extra ticks to run. */
 int netplay_rollback_frame(void)
@@ -2852,6 +2869,7 @@ static void rollback_test(void)
     if (s_rb_phase == 0 && s_step == s_rb_at) {
         t = rb_ms();
         rollback_save(s_rb_start);
+        s_rb_jt = s_jt;             /* the journal's mark for this tick comes next */
         fprintf(stderr, "[ROLLBACK] saved at step %ld in %.2f ms\n", s_step, rb_ms() - t);
         s_rb_phase = 1;
     } else if (s_rb_phase == 1 && s_step == s_rb_at + s_rb_len) {
@@ -2863,8 +2881,15 @@ static void rollback_test(void)
         fprintf(stderr, "[ROLLBACK] Direct3D device at %08x\n", (unsigned)MEM32(0x00234768u));
         { static int dumped; if (!dumped++) rollback_dump_changes(s_rb_start, stderr); }
         t = rb_ms();
-        if (s_rb_track) rollback_restore_fight(s_rb_start);
-        else rollback_restore(s_rb_start);
+        if (journal_on() && rollback_journal_restore(s_rb_jt, s_jt - 1)) {
+            static int said;
+            s_jt = s_rb_jt;
+            if (!said++) fprintf(stderr, "[ROLLBACK] rewinding with the journal (ticks %ld..%ld)\n", s_rb_jt, s_jt);
+        } else {
+            if (journal_on()) fprintf(stderr, "[ROLLBACK] the journal can't reach tick %ld: whole restore\n", s_rb_jt);
+            if (s_rb_track) rollback_restore_fight(s_rb_start);
+            else rollback_restore(s_rb_start);
+        }
         fprintf(stderr, "[ROLLBACK] at step %ld: %d pages changed in %ld steps; restored step %ld in %.2f ms\n",
                 s_step, pages, s_rb_len, s_rb_at, rb_ms() - t);
         if (s_rb_track) {

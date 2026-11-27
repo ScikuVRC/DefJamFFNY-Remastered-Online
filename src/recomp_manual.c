@@ -254,6 +254,48 @@ void sub_0002A180(void)
     if (netplay_rollback_active() && !ON_FIGHT_THREAD() && rollback_defer_free(addr)) { g_esp += 8; return; }
     sub_0002A180_gen();
 }
+/* The stream library sets up a pool (sub_001E7900: the memory is its fourth argument, the size
+ * its fifth). Rewinds leave the pool alone: the stream thread lives in it. */
+extern void sub_001E7900_gen(void);
+extern void rollback_stream_pool(uint32_t at, uint32_t size);
+void sub_001E7900(void)
+{
+    uint32_t at = MEM32(g_esp + 0x10), size = MEM32(g_esp + 0x14);
+    sub_001E7900_gen();
+    if (at && MEM32(at) == 0x4D525453u)     /* "STRM": it was made */
+        rollback_stream_pool(at, size);
+}
+/* A block back to its stream pool: arg 1 points at the pool's pointer, arg 2 is the block.
+ * Diagnostics while rollback is on: say where a pool pointer went bad instead of crashing. */
+extern void sub_001E8340_gen(void);
+extern void rollback_writer_dump(uint32_t addr);
+void sub_001E8340(void)
+{
+    uint32_t ref = MEM32(g_esp + 4), block = MEM32(g_esp + 8);
+    if (netplay_rollback_active() && ref) {
+        uint32_t pool = MEM32(ref);
+        int ok = pool >= 0x00011000u && pool < 0x84000000u && (pool < 0x04000000u || pool >= 0x80000000u) &&
+                 MEM32(pool) == 0x4D525453u;
+        if (!ok) {
+            static int said;
+            if (said++ < 20) {
+                uint32_t k;
+                fprintf(stderr, "[ROLLBACK] stream free: pool pointer at %08x is %08x (block %08x, %s thread); callers:",
+                        ref, pool, block, ON_FIGHT_THREAD() ? "fight" : "other");
+                for (k = 0; k < 24; k++) {
+                    uint32_t v = MEM32(g_esp + k * 4);
+                    if (v >= 0x00011000u && v < 0x00230000u) fprintf(stderr, " %06x", v);
+                }
+                fputc('\n', stderr);
+                rollback_writer_dump(ref);
+                fflush(stderr);
+            }
+            g_esp += 4;   /* ret (cdecl) */
+            return;
+        }
+    }
+    sub_001E8340_gen();
+}
 /* The CRT's heap (allocate sub_001E9AB0, free sub_001E9F90), the same way. Its frees are queued
  * with the low bit set. */
 extern void sub_001E9AB0_gen(void);
@@ -1369,6 +1411,7 @@ extern int netplay_rollback_frame(void);
 extern void netplay_rollback_frame_done(double ms, int ticks);
 extern double netplay_rollback_now_ms(void);
 extern int netplay_rollback_rerun_more(void);
+extern void netplay_journal_tick(void);
 extern int rollback_crt_list_check(const char *when, long step);
 extern long netplay_rollback_step(void);
 void sub_00077040(void)
@@ -1384,6 +1427,7 @@ void sub_00077040(void)
             g_esp -= 4; MEM32(g_esp) = dt;
             g_esp -= 4; MEM32(g_esp) = 0x00011D7Bu;
             g_ecx = self;
+            netplay_journal_tick();
             sub_00077040_gen();
             ran++;
             rollback_crt_list_check("after a re-run tick", netplay_rollback_step());
@@ -1391,6 +1435,7 @@ void sub_00077040(void)
         netplay_rollback_frame_done(netplay_rollback_now_ms() - t, ran);
     }
     g_ecx = self;
+    netplay_journal_tick();
     sub_00077040_gen();
     rollback_crt_list_check("after a normal tick", netplay_rollback_step());
 }
