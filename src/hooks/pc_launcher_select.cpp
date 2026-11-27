@@ -424,14 +424,18 @@ void ui_pick(const NetplayLobby &l, const NetplaySelect &sel, float width, float
             ImGui::SameLine();
             if (ImGui::Button("Created fighter..."))
                 ImGui::OpenPopup("created");
+            ui_target("SelectCreated");
             if (ImGui::BeginPopup("created"))
             {
                 for (const LauncherProfile &p : profiles)
+                {
                     if (ImGui::Selectable(p.name.c_str()))
                     {
                         netplay_pick_created(p.name.c_str());
                         netplay_set_ready(1);
                     }
+                    ui_target(("Created:" + p.name).c_str()); // a test's: ui:Created:<profile>
+                }
                 ImGui::EndPopup();
             }
         }
