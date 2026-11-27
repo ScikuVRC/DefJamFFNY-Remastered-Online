@@ -221,7 +221,16 @@ static void last_error_notice(float s)
     ImGui::Spacing();
     ImGui::TextWrapped("It stopped with this error last time:");
     ImGui::Spacing();
-    ImGui::TextWrapped("%s", last_error().c_str());
+    {
+        // The file is "<when>\n<message>", and the messages are wrapped by hand for the dialog.
+        // TextWrapped wraps again, so a single line break inside a paragraph becomes a space.
+        std::string text = last_error();
+        size_t first = text.find('\n');
+        for (size_t i = first == std::string::npos ? text.size() : first + 1; i < text.size(); ++i)
+            if (text[i] == '\n' && text[i - 1] != '\n' && i + 1 < text.size() && text[i + 1] != '\n')
+                text[i] = ' ';
+        ImGui::TextWrapped("%s", text.c_str());
+    }
     ImGui::Spacing();
     if (ImGui::Button("Dismiss", ImVec2(120 * s, 0)))
     {
