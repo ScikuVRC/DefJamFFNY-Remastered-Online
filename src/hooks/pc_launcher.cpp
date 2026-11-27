@@ -294,8 +294,11 @@ extern "C" int pc_launcher_run(void)
         x = work.left + (work.right - work.left - w) / 2;
         y = work.top + (work.bottom - work.top - h) / 2;
     }
-    HWND window = CreateWindowExW(0, L"DefJamRecompLauncher", L"Def Jam: Fight for NY - Launcher",
-                                  WS_OVERLAPPEDWINDOW, x, y, w, h, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+    const bool hidden = pc_hidden_window() != 0;     // RECOMP_HIDDEN: off screen, never focused
+    if (hidden) x = y = -32000;
+    HWND window = CreateWindowExW(hidden ? WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE : 0, L"DefJamRecompLauncher",
+                                  L"Def Jam: Fight for NY - Launcher", WS_OVERLAPPEDWINDOW, x, y, w, h, nullptr,
+                                  nullptr, GetModuleHandleW(nullptr), nullptr);
     if (!window) return 1;                       // no window: do not hold the game back
     if (!make_device(window)) {
         fprintf(stderr, "[UI] launcher: no Direct3D 11 device; starting the game\n");
@@ -308,8 +311,8 @@ extern "C" int pc_launcher_run(void)
     ImGui_ImplWin32_Init(window);
     ImGui_ImplDX11_Init(g_dev, g_ctx);
     ui_unlock();
-    ShowWindow(window, SW_SHOW);
-    SetForegroundWindow(window);
+    ShowWindow(window, hidden ? SW_SHOWNOACTIVATE : SW_SHOW);
+    if (!hidden) SetForegroundWindow(window);
     fprintf(stderr, "[UI] launcher shown\n");
     fflush(stderr);
 

@@ -359,6 +359,16 @@ static void supply_runtime_defaults(void)
         _putenv_s("RECOMP_HEAP_RECLAIM", "1");
 }
 
+int pc_hidden_window(void)
+{
+    static int hidden = -1;
+    if (hidden < 0) {
+        const char *v = getenv("RECOMP_HIDDEN");
+        hidden = v && *v && strcmp(v, "0") != 0;
+    }
+    return hidden;
+}
+
 int pc_display(const char *key, int fallback)
 {
     return recomp_settings_get("display", key, fallback);

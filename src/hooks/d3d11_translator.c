@@ -81,7 +81,7 @@ static WINDOWPLACEMENT s_windowed_placement = { sizeof(WINDOWPLACEMENT) };
 
 static void set_fullscreen(HWND h, int on)
 {
-    if (!!on == s_fullscreen)
+    if (!!on == s_fullscreen || pc_hidden_window())
         return;
     if (on) {
         MONITORINFO mi;
@@ -313,6 +313,14 @@ static HWND make_window(void)
         y = work.top + (work.bottom - work.top - h) / 2;
     }
 
+    /* RECOMP_HIDDEN=1 (unattended runs): the window is shown, so it draws and is captured as
+     * usual, but far off every screen, out of the taskbar and never activated. */
+    if (pc_hidden_window()) {
+        x = y = -32000;
+        return CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, L"DefJamRecompTranslator",
+                               L"Def Jam: Fight for NY", WS_OVERLAPPEDWINDOW, x, y, w, h,
+                               NULL, NULL, GetModuleHandleW(NULL), NULL);
+    }
     return CreateWindowExW(0, L"DefJamRecompTranslator",
                            L"Def Jam: Fight for NY", WS_OVERLAPPEDWINDOW,
                            x, y, w, h,
@@ -365,14 +373,14 @@ static DWORD WINAPI window_thread(LPVOID unused)
     }
     s_window = make_window();
     if (s_window) {
-        ShowWindow(s_window, SW_SHOW);
+        ShowWindow(s_window, pc_hidden_window() ? SW_SHOWNOACTIVATE : SW_SHOW);
         s_mouse_moved = GetTickCount64();
         SetTimer(s_window, CURSOR_TIMER, 250, NULL);
         pc_input_set_focus(GetFocus() == s_window);
         pc_settings_on_fullscreen(fullscreen_setting_changed);
         pc_settings_on_window_size(window_size_setting_changed);
         pc_ui_set_window(s_window);
-        if (pc_display("fullscreen", 0))
+        if (pc_display("fullscreen", 0) && !pc_hidden_window())
             set_fullscreen(s_window, 1);
     }
     SetEvent(s_window_ready);

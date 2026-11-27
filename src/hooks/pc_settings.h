@@ -20,6 +20,10 @@ void pc_settings_set_args(int argc, char **argv);
 /* Effective value of a [display] setting. */
 int pc_display(const char *key, int fallback);
 
+/* RECOMP_HIDDEN=1: unattended runs keep their windows off screen, out of the taskbar and
+ * unfocused. They still draw, so captures work as usual. */
+int pc_hidden_window(void);
+
 /* Store a [display] value and write the file. Safe from any thread. */
 void pc_display_set(const char *key, int value);
 
